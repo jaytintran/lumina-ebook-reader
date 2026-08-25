@@ -60,36 +60,19 @@ function PdfPageItem({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [rendered, setRendered] = useState(false);
+  const isIntersectingRef = useRef(false);
   const renderTaskRef = useRef<pdfjs.RenderTask | null>(null);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry.isIntersecting) {
-          onVisible(pageNumber);
-          if (!rendered) {
-            renderPage();
-          }
-        }
-      },
-      { rootMargin: "600px 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [pageNumber, rendered, scale, pdfDoc]);
-
   const renderPage = async () => {
-    try {
-      if (renderTaskRef.current) {
-        try {
-          renderTaskRef.current.cancel();
-        } catch {
-          // ignore
-        }
+    if (renderTaskRef.current) {
+      try {
+        renderTaskRef.current.cancel();
+      } catch {
+        // ignore
       }
+      renderTaskRef.current = null;
+    }
+    try {
       const page = await pdfDoc.getPage(pageNumber);
       const viewport = page.getViewport({ scale });
       const canvas = canvasRef.current;
@@ -104,25 +87,48 @@ function PdfPageItem({
       renderTaskRef.current = task;
       await task.promise;
       setRendered(true);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "name" in err && err.name === "RenderingCancelledException") {
+        return;
+      }
     }
   };
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        isIntersectingRef.current = entry.isIntersecting;
+        if (entry.isIntersecting) {
+          onVisible(pageNumber);
+          if (!rendered) {
+            renderPage();
+          }
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pageNumber, rendered, scale, pdfDoc]);
+
+  useEffect(() => {
     setRendered(false);
-    renderPage();
+    if (isIntersectingRef.current) {
+      renderPage();
+    }
   }, [scale]);
 
   return (
     <div
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
-      className="relative mb-6 shadow-2xl rounded-sm overflow-hidden border border-neutral-800 bg-white"
-      style={{ minHeight: "400px" }}
+      className="relative mb-6 shadow-2xl rounded-sm border border-neutral-800 bg-white"
     >
-      <canvas ref={canvasRef} className="block max-w-full" />
-      <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[10px] text-white">
+      <canvas ref={canvasRef} className="block" />
+      <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[10px] text-white pointer-events-none">
         Page {pageNumber}
       </div>
     </div>
@@ -168,6 +174,24 @@ export function ReaderPage() {
 
   const [epubDoc, setEpubDoc] = useState<ParsedEpubContent | null>(null);
   const [epubSectionIdx, setEpubSectionIdx] = useState(0);
+  const [epubFontSize, setEpubFontSize] = useState(100);
+
+  const handlePdfZoomOut = () => {
+    setPdfScale((s) => Math.max(0.5, Math.round((s - 0.2) * 10) / 10));
+  };
+  const handlePdfZoomIn = () => {
+    setPdfScale((s) => Math.min(3.0, Math.round((s + 0.2) * 10) / 10));
+  };
+  const handlePdfZoomReset = () => {
+    setPdfScale(1.0);
+  };
+
+  const handleEpubZoomOut = () => {
+    setEpubFontSize((s) => Math.max(70, s - 10));
+  };
+  const handleEpubZoomIn = () => {
+    setEpubFontSize((s) => Math.min(200, s + 10));
+  };
 
   const centerScrollRef = useRef<HTMLDivElement>(null);
 
@@ -373,17 +397,25 @@ export function ReaderPage() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setPdfScale((s) => Math.max(0.7, s - 0.15))}
+                disabled={pdfScale <= 0.5}
+                onClick={handlePdfZoomOut}
+                title="Zoom Out"
               >
                 <ZoomOut className="h-4 w-4" />
               </Button>
-              <span className="text-[11px] text-muted-foreground w-10 text-center">
+              <button
+                onClick={handlePdfZoomReset}
+                title="Reset Zoom to 100%"
+                className="text-[11px] text-muted-foreground hover:text-foreground w-11 text-center font-medium transition-colors cursor-pointer"
+              >
                 {Math.round(pdfScale * 100)}%
-              </span>
+              </button>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setPdfScale((s) => Math.min(2.5, s + 0.15))}
+                disabled={pdfScale >= 3.0}
+                onClick={handlePdfZoomIn}
+                title="Zoom In"
               >
                 <ZoomIn className="h-4 w-4" />
               </Button>
@@ -409,6 +441,32 @@ export function ReaderPage() {
                   onClick={() => setEpubSectionIdx((i) => Math.min(epubDoc.sections.length - 1, i + 1))}
                 >
                   <ChevronRight className="h-4 w-4" />
+                </Button>
+                <div className="h-4 w-px bg-border mx-1" />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={epubFontSize <= 70}
+                  onClick={handleEpubZoomOut}
+                  title="Decrease Font Size"
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <button
+                  onClick={() => setEpubFontSize(100)}
+                  title="Reset Font Size"
+                  className="text-[11px] text-muted-foreground hover:text-foreground w-11 text-center font-medium transition-colors cursor-pointer"
+                >
+                  {epubFontSize}%
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={epubFontSize >= 200}
+                  onClick={handleEpubZoomIn}
+                  title="Increase Font Size"
+                >
+                  <ZoomIn className="h-4 w-4" />
                 </Button>
               </>
             )
@@ -581,14 +639,14 @@ export function ReaderPage() {
         <main
           ref={centerScrollRef}
           onMouseUp={handleMouseUp}
-          className="flex-1 overflow-y-auto bg-neutral-950 flex flex-col items-center justify-start p-4 md:p-8"
+          className="flex-1 overflow-auto bg-neutral-950 flex flex-col items-center justify-start p-4 md:p-8"
         >
           {loadingDoc ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground animate-pulse">
               Rendering document...
             </div>
           ) : book.fileType === "pdf" && pdfDoc ? (
-            <div className="flex flex-col items-center w-full max-w-4xl pb-16">
+            <div className="flex flex-col items-center pb-16 min-w-min">
               {Array.from({ length: pdfNumPages }).map((_, idx) => (
                 <PdfPageItem
                   key={idx + 1}
@@ -608,7 +666,10 @@ export function ReaderPage() {
             </div>
           ) : (
             epubDoc && (
-              <div className="flex flex-col items-center w-full max-w-3xl pb-16 gap-8">
+              <div
+                className="flex flex-col items-center w-full max-w-3xl pb-16 gap-8"
+                style={{ fontSize: `${epubFontSize}%` }}
+              >
                 {epubDoc.sections.map((sec, idx) => (
                   <div
                     key={sec.id || idx}
