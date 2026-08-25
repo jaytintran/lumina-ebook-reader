@@ -100,3 +100,67 @@ select option {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
 }
+
+/* PDF.js TextLayer highlight overrides */
+.textLayer {
+  user-select: text;
+  -webkit-user-select: text;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.textLayer .lumina-highlight {
+  cursor: pointer;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  pointer-events: auto;
+}
+
+.textLayer .lumina-highlight-yellow {
+  background-color: rgba(250, 204, 21, 0.45) !important;
+}
+
+.textLayer .lumina-highlight-green {
+  background-color: rgba(74, 222, 128, 0.45) !important;
+}
+
+.textLayer .lumina-highlight-blue {
+  background-color: rgba(96, 165, 250, 0.45) !important;
+}
+
+.textLayer .lumina-highlight-purple {
+  background-color: rgba(192, 132, 252, 0.45) !important;
+}
+
+/* In-text Highlight marks (EPUB & general) */
+.lumina-highlight {
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 1px 2px;
+  transition: filter 0.15s ease;
+}
+
+.lumina-highlight:hover {
+  filter: brightness(1.15);
+}
+
+.lumina-highlight-yellow {
+  background-color: rgba(250, 204, 21, 0.45);
+  color: inherit;
+}
+
+.lumina-highlight-green {
+  background-color: rgba(74, 222, 128, 0.45);
+  color: inherit;
+}
+
+.lumina-highlight-blue {
+  background-color: rgba(96, 165, 250, 0.45);
+  color: inherit;
+}
+
+.lumina-highlight-purple {
+  background-color: rgba(192, 132, 252, 0.45);
+  color: inherit;
+}

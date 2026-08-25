@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import * as pdfjs from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import "pdfjs-dist/web/pdf_viewer.css";
 import {
   ArrowLeft,
   Bookmark as BookmarkIcon,
@@ -46,20 +47,60 @@ pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 type LeftTab = "toc" | "bookmarks";
 type RightTab = "notes" | "highlights" | "metadata";
 
+function applyPdfHighlights(
+  container: HTMLDivElement,
+  highlights: Array<{ id?: number; text: string; color: string; pageOrLocation: number | string }>,
+  onHighlightClick?: (id: number) => void
+) {
+  const spans = Array.from(container.querySelectorAll("span"));
+  if (!spans.length || !highlights.length) return;
+
+  for (const h of highlights) {
+    if (!h.text || h.text.trim().length < 2) continue;
+    const cleanHText = h.text.replace(/\s+/g, " ").trim().toLowerCase();
+    for (const span of spans) {
+      const spanText = span.textContent?.replace(/\s+/g, " ").trim().toLowerCase() || "";
+      if (
+        spanText &&
+        (cleanHText.includes(spanText) || spanText.includes(cleanHText)) &&
+        spanText.length > 2
+      ) {
+        span.classList.add("lumina-highlight", `lumina-highlight-${h.color}`);
+        span.style.color = "transparent";
+        if (h.id) {
+          span.setAttribute("data-highlight-id", String(h.id));
+          span.title = `Highlight (${h.color}): ${h.text}`;
+          span.onclick = (e) => {
+            e.stopPropagation();
+            if (onHighlightClick && h.id) {
+              onHighlightClick(h.id);
+            }
+          };
+        }
+      }
+    }
+  }
+}
+
 function PdfPageItem({
   pdfDoc,
   pageNumber,
   scale,
   pageSize,
+  highlights = [],
   onVisible,
+  onHighlightClick,
 }: {
   pdfDoc: pdfjs.PDFDocumentProxy;
   pageNumber: number;
   scale: number;
   pageSize: { width: number; height: number };
+  highlights?: Array<{ id?: number; text: string; color: string; pageOrLocation: number | string }>;
   onVisible: (pageNumber: number) => void;
+  onHighlightClick?: (id: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const textLayerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [rendered, setRendered] = useState(false);
   const isIntersectingRef = useRef(false);
@@ -91,6 +132,37 @@ function PdfPageItem({
       const task = page.render({ canvasContext: ctx, viewport } as never);
       renderTaskRef.current = task;
       await task.promise;
+
+      // Render Text Layer for text selection and in-PDF highlighting
+      if (textLayerRef.current) {
+        textLayerRef.current.innerHTML = "";
+        textLayerRef.current.style.setProperty("--total-scale-factor", scale.toString());
+        textLayerRef.current.style.setProperty("--scale-factor", scale.toString());
+        try {
+          const textContent = await page.getTextContent();
+          if (typeof (pdfjs as any).TextLayer === "function") {
+            const textLayer = new (pdfjs as any).TextLayer({
+              textContentSource: textContent,
+              container: textLayerRef.current,
+              viewport,
+            });
+            await textLayer.render();
+          } else if (typeof (pdfjs as any).renderTextLayer === "function") {
+            await (pdfjs as any).renderTextLayer({
+              textContentSource: textContent,
+              container: textLayerRef.current,
+              viewport,
+            }).promise;
+          }
+
+          if (highlights.length > 0) {
+            applyPdfHighlights(textLayerRef.current, highlights, onHighlightClick);
+          }
+        } catch {
+          // text layer fallback
+        }
+      }
+
       setRendered(true);
     } catch (err: unknown) {
       if (err && typeof err === "object" && "name" in err && err.name === "RenderingCancelledException") {
@@ -126,22 +198,69 @@ function PdfPageItem({
     }
   }, [scale]);
 
+  // Re-apply in-text highlights when highlights change
+  useEffect(() => {
+    if (rendered && textLayerRef.current && highlights.length > 0) {
+      applyPdfHighlights(textLayerRef.current, highlights, onHighlightClick);
+    }
+  }, [highlights, rendered]);
+
   return (
     <div
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
-      className="relative mb-6 shadow-2xl rounded-sm border border-neutral-800 bg-white"
+      className="relative mb-6 shadow-2xl rounded-sm border border-neutral-800 bg-white select-text"
       style={{
         width: `${expectedWidth}px`,
         height: `${expectedHeight}px`,
-      }}
+        "--total-scale-factor": scale,
+        "--scale-factor": scale,
+      } as React.CSSProperties}
     >
       <canvas ref={canvasRef} className="block" width={expectedWidth} height={expectedHeight} />
-      <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[10px] text-white pointer-events-none">
+      <div
+        ref={textLayerRef}
+        className="textLayer"
+        style={{
+          width: `${expectedWidth}px`,
+          height: `${expectedHeight}px`,
+          "--total-scale-factor": scale,
+          "--scale-factor": scale,
+        } as React.CSSProperties}
+      />
+      <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[10px] text-white pointer-events-none z-10">
         Page {pageNumber}
       </div>
     </div>
   );
+}
+
+function highlightEpubHtml(
+  rawHtml: string,
+  sectionIdx: number,
+  highlights: Array<{ id?: number; text: string; color: string; pageOrLocation: number | string }>
+): string {
+  if (!rawHtml || highlights.length === 0) return rawHtml;
+  let html = rawHtml;
+  const sectionHighlights = highlights.filter(
+    (h) => Number(h.pageOrLocation) === sectionIdx + 1 || !h.pageOrLocation
+  );
+
+  for (const h of sectionHighlights) {
+    if (!h.text || h.text.trim().length < 2) continue;
+    try {
+      const trimmed = h.text.trim();
+      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`(?![^<]*>)(${escaped})`, "gi");
+      html = html.replace(
+        regex,
+        `<mark class="lumina-highlight lumina-highlight-${h.color}" data-highlight-id="${h.id || ""}" title="Highlight (${h.color}): ${trimmed}">$1</mark>`
+      );
+    } catch {
+      // ignore
+    }
+  }
+  return html;
 }
 
 export function ReaderPage() {
@@ -330,12 +449,37 @@ export function ReaderPage() {
     };
   }, [book, book?.fileKey]);
 
-  // Listen for text selection
-  const handleMouseUp = () => {
+  // Highlight click / selection handler
+  const handleHighlightClick = (highlightId: number) => {
+    setRightTab("highlights");
+    setRightPinned(true);
+    setTimeout(() => {
+      const itemEl = document.getElementById(`sidebar-hl-${highlightId}`);
+      if (itemEl) {
+        itemEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        itemEl.classList.add("ring-2", "ring-primary");
+        setTimeout(() => itemEl.classList.remove("ring-2", "ring-primary"), 2000);
+      }
+    }, 100);
+  };
+
+  // Listen for text selection or in-text highlight clicks
+  const handleMouseUp = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement | null;
+    const highlightEl = target?.closest(".lumina-highlight");
+    if (highlightEl) {
+      const hlId = highlightEl.getAttribute("data-highlight-id");
+      if (hlId) {
+        handleHighlightClick(Number(hlId));
+        return;
+      }
+    }
+
     const text = window.getSelection()?.toString().trim();
     if (text && text.length > 1) {
       setSelectedText(text);
       setRightTab("highlights");
+      setRightPinned(true);
     }
   };
 
@@ -388,6 +532,96 @@ export function ReaderPage() {
     });
     setNewNote("");
   };
+
+  // Keyboard navigation & hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      // 1. Page / Section Navigation: Left / Right, PageUp / PageDown, Space / Shift+Space
+      if (e.key === "ArrowLeft" || e.key === "PageUp" || (e.key === " " && e.shiftKey)) {
+        e.preventDefault();
+        if (book?.fileType === "pdf") {
+          const nextP = Math.max(1, pdfCurrentPage - 1);
+          setPdfCurrentPage(nextP);
+          const el = document.getElementById(`pdf-page-${nextP}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (epubDoc) {
+          const nextS = Math.max(0, epubSectionIdx - 1);
+          setEpubSectionIdx(nextS);
+          const el = document.getElementById(`epub-sec-${nextS}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      } else if (e.key === "ArrowRight" || e.key === "PageDown" || (e.key === " " && !e.shiftKey)) {
+        e.preventDefault();
+        if (book?.fileType === "pdf") {
+          const nextP = Math.min(pdfNumPages, pdfCurrentPage + 1);
+          setPdfCurrentPage(nextP);
+          const el = document.getElementById(`pdf-page-${nextP}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (epubDoc) {
+          const nextS = Math.min(epubDoc.sections.length - 1, epubSectionIdx + 1);
+          setEpubSectionIdx(nextS);
+          const el = document.getElementById(`epub-sec-${nextS}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+
+      // 2. Zoom Controls: +, -, 0
+      else if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        if (book?.fileType === "pdf") handlePdfZoomIn();
+        else handleEpubZoomIn();
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        if (book?.fileType === "pdf") handlePdfZoomOut();
+        else handleEpubZoomOut();
+      } else if (e.key === "0") {
+        e.preventDefault();
+        if (book?.fileType === "pdf") handlePdfZoomReset();
+        else setEpubFontSize(100);
+      }
+
+      // 3. Bookmark: B / b
+      else if (e.key === "b" || e.key === "B") {
+        e.preventDefault();
+        handleAddBookmark();
+      }
+
+      // 4. Toggle Sidebars: [ and ]
+      else if (e.key === "[") {
+        e.preventDefault();
+        setLeftPinned((p) => !p);
+      } else if (e.key === "]") {
+        e.preventDefault();
+        setRightPinned((p) => !p);
+      }
+
+      // 5. Search / TOC focus: F or Ctrl+F
+      else if ((e.key === "f" || e.key === "F") && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setLeftTab("toc");
+        setLeftPinned(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    book?.fileType,
+    pdfCurrentPage,
+    pdfNumPages,
+    epubSectionIdx,
+    epubDoc,
+    handleAddBookmark,
+  ]);
 
   if (bookLoading || !book) {
     return (
@@ -521,6 +755,7 @@ export function ReaderPage() {
             size="sm"
             className="text-xs h-8 gap-1.5"
             onClick={() => setLeftPinned((p) => !p)}
+            title="Toggle TOC & Bookmarks ([)"
           >
             {leftPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
             <span className="hidden md:inline">TOC / Bookmarks</span>
@@ -531,6 +766,7 @@ export function ReaderPage() {
             size="sm"
             className="text-xs h-8 gap-1.5"
             onClick={() => setRightPinned((p) => !p)}
+            title="Toggle Notes & Highlights (])"
           >
             {rightPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
             <span className="hidden md:inline">Notes & Info</span>
@@ -727,6 +963,8 @@ export function ReaderPage() {
                   pageNumber={idx + 1}
                   scale={pdfScale}
                   pageSize={pdfPageSize}
+                  highlights={highlights}
+                  onHighlightClick={handleHighlightClick}
                   onVisible={(page) => {
                     setPdfCurrentPage(page);
                     saveProgress.mutate({
@@ -741,7 +979,7 @@ export function ReaderPage() {
           ) : (
             epubDoc && (
               <div
-                className="flex flex-col items-center w-full max-w-3xl pb-16 gap-8"
+                className="flex flex-col items-center w-full max-w-3xl pb-16 gap-8 select-text"
                 style={{ fontSize: `${epubFontSize}%` }}
               >
                 {epubDoc.sections.map((sec, idx) => (
@@ -756,7 +994,7 @@ export function ReaderPage() {
                     <div
                       className="prose prose-invert max-w-none space-y-4 text-neutral-200 [&_p]:mb-4 [&_h1]:text-2xl [&_h2]:text-xl [&_img]:max-w-full [&_img]:rounded-md"
                       dangerouslySetInnerHTML={{
-                        __html: sec.html || "<p>Empty section</p>",
+                        __html: highlightEpubHtml(sec.html, idx, highlights) || "<p>Empty section</p>",
                       }}
                     />
                   </div>
@@ -886,10 +1124,26 @@ export function ReaderPage() {
                     {highlights.map((h) => (
                       <div
                         key={h.id}
-                        className="group flex flex-col gap-1 rounded-lg border border-border bg-background p-3 text-xs"
+                        id={`sidebar-hl-${h.id}`}
+                        className="group flex flex-col gap-1 rounded-lg border border-border bg-background p-3 text-xs transition-all duration-200"
                       >
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1 font-medium">
+                          <button
+                            onClick={() => {
+                              if (book.fileType === "pdf") {
+                                const p = Number(h.pageOrLocation);
+                                setPdfCurrentPage(p);
+                                const el = document.getElementById(`pdf-page-${p}`);
+                                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                              } else {
+                                const s = Number(h.pageOrLocation) - 1;
+                                setEpubSectionIdx(s);
+                                const el = document.getElementById(`epub-sec-${s}`);
+                                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }
+                            }}
+                            className="flex items-center gap-1 font-medium hover:text-foreground text-left transition-colors"
+                          >
                             <span
                               className={cn(
                                 "h-2 w-2 rounded-full",
@@ -899,8 +1153,8 @@ export function ReaderPage() {
                                 h.color === "purple" && "bg-purple-400"
                               )}
                             />
-                            Loc: {h.pageOrLocation}
-                          </span>
+                            {book.fileType === "pdf" ? `Page ${h.pageOrLocation}` : `Section ${h.pageOrLocation}`}
+                          </button>
                           <button
                             onClick={() => deleteHighlight.mutate({ id: h.id!, bookId })}
                             className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
@@ -908,7 +1162,7 @@ export function ReaderPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <blockquote className="text-neutral-300 italic">"{h.text}"</blockquote>
+                        <blockquote className="text-neutral-300 italic line-clamp-3">"{h.text}"</blockquote>
                       </div>
                     ))}
                     {highlights.length === 0 && (
