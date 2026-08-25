@@ -11,7 +11,6 @@ import {
   Users,
   Building2,
   Tag,
-  LayoutGrid,
   GripVertical,
 } from "lucide-react";
 import {
@@ -34,8 +33,6 @@ import { cn } from "@/lib/utils";
 import {
   useCollections,
   useSaveCollections,
-  useUpdateBook,
-  useAddBooksToCollection,
 } from "@/db/hooks";
 import { Input } from "@/components/ui/input";
 
@@ -200,9 +197,30 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen min-w-64 max-w-sm w-max shrink-0 flex-col border-r border-border bg-background transition-all duration-200">
-      <div className="flex items-center gap-2 px-4 py-4 whitespace-nowrap">
-        <LayoutGrid className="h-5 w-5 text-primary shrink-0" />
-        <span className="text-lg font-semibold whitespace-nowrap">Bookshelf</span>
+      <div className="flex items-center gap-3 px-4 py-4.5 whitespace-nowrap border-b border-border/40">
+        <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 via-indigo-500 to-purple-600 shadow-md shadow-indigo-500/20 shrink-0">
+          <svg
+            className="h-5 w-5 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" fill="white" fillOpacity="0.2" />
+            <path d="M6 2v20" />
+            <path d="M12 7l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z" fill="white" stroke="none" />
+          </svg>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-base font-extrabold tracking-wider bg-gradient-to-r from-sky-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+            LUMINA
+          </span>
+          <span className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground/80 -mt-1">
+            Ebook Reader
+          </span>
+        </div>
       </div>
 
       <nav className="flex flex-1 flex-col gap-6 overflow-y-auto overflow-x-hidden px-3 pb-4">

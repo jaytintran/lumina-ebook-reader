@@ -169,9 +169,9 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
     return parts.join("/");
   };
 
-  const items = Array.from(opfDoc.getElementsByTagName("item"));
+  const items = Array.from(opfDoc.getElementsByTagName("item")) as Element[];
   const itemMap = new Map<string, { href: string; mediaType: string }>();
-  items.forEach((it) => {
+  items.forEach((it: Element) => {
     const id = it.getAttribute("id");
     const href = it.getAttribute("href");
     const mediaType = it.getAttribute("media-type") || "";
@@ -180,11 +180,11 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
     }
   });
 
-  const spineItemrefs = Array.from(opfDoc.getElementsByTagName("itemref"));
+  const spineItemrefs = Array.from(opfDoc.getElementsByTagName("itemref")) as Element[];
   const sections: EpubSection[] = [];
   const decoder = new TextDecoder();
 
-  spineItemrefs.forEach((ref, index) => {
+  spineItemrefs.forEach((ref: Element, index: number) => {
     const idref = ref.getAttribute("idref");
     if (!idref) return;
     const item = itemMap.get(idref);
@@ -225,8 +225,8 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
   if (ncxItem && files[ncxItem.href]) {
     const ncxDoc = toXml(files[ncxItem.href]);
     if (ncxDoc) {
-      const navPoints = Array.from(ncxDoc.getElementsByTagName("navPoint"));
-      navPoints.forEach((np, idx) => {
+      const navPoints = Array.from(ncxDoc.getElementsByTagName("navPoint")) as Element[];
+      navPoints.forEach((np: Element, idx: number) => {
         const label = np.getElementsByTagName("text")[0]?.textContent?.trim() || `Chapter ${idx + 1}`;
         const contentSrc = np.getElementsByTagName("content")[0]?.getAttribute("src") || "";
         toc.push({
@@ -254,6 +254,57 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
     toc,
     sections,
   };
+}
+
+function toXml(bytes: Uint8Array): Document | null {
+  try {
+    const text = new TextDecoder().decode(bytes);
+    const doc = new DOMParser().parseFromString(text, "application/xml");
+    return doc.getElementsByTagName("parsererror").length ? null : doc;
+  } catch {
+    return null;
+  }
+}
+
+function tag(doc: Document, tagName: string): string {
+  const el = doc.getElementsByTagName(tagName)[0];
+  return el?.textContent?.trim() ?? "";
+}
+
+function extractEpubCover(
+  doc: Document,
+  files: Record<string, Uint8Array>,
+  opfPath: string
+): Blob | null {
+  try {
+    const metaCover = doc.querySelector('meta[name="cover"]')?.getAttribute("content");
+    let coverHref: string | null = null;
+
+    if (metaCover) {
+      const item = doc.getElementById(metaCover) || doc.querySelector(`item[id="${metaCover}"]`);
+      coverHref = item?.getAttribute("href") ?? null;
+    }
+
+    if (!coverHref) {
+      const item = doc.querySelector('item[properties~="cover-image"]') ||
+                   doc.querySelector('item[media-type^="image/"][id*="cover"]');
+      coverHref = item?.getAttribute("href") ?? null;
+    }
+
+    if (!coverHref) return null;
+
+    const opfDir = opfPath.replace(/[^/]*$/, "");
+    const resolvedPath = resolveRelative(opfDir ? `${opfDir}dummy` : "", coverHref);
+    const coverBytes = files[resolvedPath] || files[coverHref];
+
+    if (!coverBytes) return null;
+
+    const ext = resolvedPath.split(".").pop()?.toLowerCase() || "jpeg";
+    const mime = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" : "image/jpeg";
+    return new Blob([coverBytes.buffer as ArrayBuffer], { type: mime });
+  } catch {
+    return null;
+  }
 }
 
 function resolveRelative(baseFile: string, relPath: string): string {

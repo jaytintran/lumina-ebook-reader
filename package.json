@@ -1,5 +1,5 @@
 {
-  "name": "ebook-reader",
+  "name": "lumina-reader",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,10 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

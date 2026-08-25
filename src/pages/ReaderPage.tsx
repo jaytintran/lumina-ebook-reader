@@ -5,7 +5,6 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   ArrowLeft,
   Bookmark as BookmarkIcon,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   Highlighter,
@@ -15,7 +14,6 @@ import {
   PinOff,
   Plus,
   Save,
-  Search,
   Star,
   StickyNote,
   Trash2,
@@ -37,7 +35,6 @@ import {
   useReadingProgress,
   useSaveReadingProgress,
   useUpdateBook,
-  useUpdateNote,
 } from "@/db/hooks";
 import { parseFullEpub, type ParsedEpubContent } from "@/lib/importer";
 import { Button } from "@/components/ui/button";
@@ -158,7 +155,6 @@ export function ReaderPage() {
   const addHighlight = useAddHighlight();
   const deleteHighlight = useDeleteHighlight();
   const addNote = useAddNote();
-  const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
   const saveProgress = useSaveReadingProgress();
 

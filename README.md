@@ -32,7 +32,6 @@ A personal, local-first ebook library and reading application — organize, brow
 - **State & Data Fetching**: TanStack React Query v5 + Zustand
 - **Drag and Drop**: `@dnd-kit/core` + `@dnd-kit/sortable`
 - **Document Engines**: PDF.js (Web Worker) + Custom EPUB Unpacker (`fflate`)
-- **Desktop Runtime**: Tauri v2 (Rust)
 
 ---
 
@@ -57,52 +56,33 @@ A personal, local-first ebook library and reading application — organize, brow
 
 ---
 
-## 📦 Packaging as a Native Desktop App (Tauri)
+## 🚀 Deployment (Vercel)
 
-Lumina is configured with **Tauri v2** to compile into a lightweight native desktop app for **Windows (`.msi` / `.exe`)**, **macOS (`.dmg`)**, and **Linux (`.deb` / `.AppImage`)**.
+Lumina is configured for zero-config one-click deployment on **Vercel**.
 
-### Prerequisites for Desktop Builds:
-- Install [Rust & Cargo](https://www.rust-lang.org/tools/install) (runs `rustup-init.exe` on Windows).
-- On Windows: Ensure the C++ Build Tools from [Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/) are installed.
+### Step-by-Step Deployment:
 
-### Commands:
-- **Run Desktop App in Development Mode**:
-  ```bash
-  npm run tauri:dev
-  ```
-- **Compile Production Desktop Executable / Installer**:
-  ```bash
-  npm run tauri:build
-  ```
-  The compiled installer will be located in `src-tauri/target/release/bundle/`.
+1. **Deploy via Vercel Web Dashboard (Recommended)**:
+   - Push this repository to GitHub, GitLab, or Bitbucket.
+   - Go to [vercel.com/new](https://vercel.com/new).
+   - Select your repository.
+   - Framework preset: `Vite` (auto-detected).
+   - Click **Deploy**.
 
----
+2. **Deploy via Vercel CLI**:
+   ```bash
+   npm i -g vercel
+   vercel
+   ```
+   For production:
+   ```bash
+   vercel --prod
+   ```
 
-## 🌐 Web Deployment Options
-
-Because Lumina is a client-side Single-Page Application (SPA):
-
-### Option 1: Vercel
-Create `vercel.json` in the project root:
+### SPA Rewrites
+The project includes [`vercel.json`](./vercel.json) to handle client-side routing rewrites seamlessly:
 ```json
 {
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
 ```
-Run `vercel` or connect your repository on [vercel.com](https://vercel.com).
-
-### Option 2: Cloudflare Pages
-1. Connect your repository on Cloudflare Dashboard $\rightarrow$ **Workers & Pages**.
-2. **Build command**: `npm run build`
-3. **Output directory**: `dist`
-4. Add `public/_redirects`:
-   ```text
-   /*    /index.html   200
-   ```
-
-### Option 3: Netlify
-Deploy directly with:
-```bash
-netlify deploy --prod --dir=dist
-```
-Add `public/_redirects` with `/* /index.html 200`.
