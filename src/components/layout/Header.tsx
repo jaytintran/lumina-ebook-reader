@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-import { Search, Upload, Settings } from "lucide-react";
+import { Search, Settings, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -8,30 +7,44 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ImportButton } from "@/components/import/ImportButton";
+import { useUIStore } from "@/stores/uiStore";
 
 export function Header() {
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  const searchQuery = useUIStore((s) => s.searchQuery);
+  const setSearchQuery = useUIStore((s) => s.setSearchQuery);
+
   return (
     <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-background px-6">
       <div className="relative max-w-md flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search books..." className="pl-9" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by title, author, tag, publisher..."
+          className="pl-9 pr-8"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
+        <ImportButton />
         <Tooltip>
           {/* @ts-expect-error */}
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Upload className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Import books</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          {/* @ts-expect-error */}
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSettingsOpen(true)}
+            >
               <Settings className="h-4 w-4" />
             </Button>
           </TooltipTrigger>

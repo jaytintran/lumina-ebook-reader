@@ -1,0 +1,276 @@
+import * as pdfjs from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { unzipSync } from "fflate";
+import { db } from "@/db/db";
+import { saveFile } from "@/db/opfs";
+import type { Book } from "@/db/schema";
+
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+const stripExt = (name: string) => name.replace(/\.[^.]+$/, "");
+
+/** Import one PDF/EPUB: save bytes to OPFS, parse metadata, render a cover, insert a Book row. */
+export async function importBookFile(file: File): Promise<Book> {
+  const fileType = /\.epub$/i.test(file.name)
+    ? "epub"
+    : /\.pdf$/i.test(file.name)
+      ? "pdf"
+      : null;
+  if (!fileType) throw new Error(`Unsupported file: ${file.name}`);
+
+  const buffer = await file.arrayBuffer();
+  const fileKey = `${crypto.randomUUID()}.${fileType}`;
+
+  let title = stripExt(file.name);
+  let author = "Unknown";
+  let publisher: string | undefined;
+  let description: string | undefined;
+  let cover: Blob | null = null;
+
+  if (fileType === "pdf") {
+    try {
+      const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+      const info = ((await pdf.getMetadata().catch(() => null))?.info ??
+        {}) as Record<string, unknown>;
+      if (str(info.Title)) title = str(info.Title);
+      if (str(info.Author)) author = str(info.Author);
+      if (str(info.Subject)) description = str(info.Subject);
+      cover = await renderPageCover(pdf);
+    } catch (err) {
+      console.warn("PDF metadata extraction failed, falling back to default info:", err);
+    }
+  } else {
+    const parsed = parseEpub(buffer);
+    title = parsed.title || title;
+    author = parsed.author || author;
+    publisher = parsed.publisher;
+    description = parsed.description;
+    cover = parsed.cover;
+  }
+
+  await saveFile(fileKey, file);
+  let coverKey: string | undefined;
+  if (cover) {
+    coverKey = `${fileKey}.cover`;
+    await saveFile(coverKey, cover);
+  }
+
+  const max = await db.books.orderBy("order").last();
+  const book: Book = {
+    title,
+    author,
+    publisher,
+    description,
+    rating: 0,
+    tags: [],
+    isFavorite: false,
+    fileType,
+    fileKey,
+    coverKey,
+    order: max ? max.order + 1 : 0,
+    dateAdded: Date.now(),
+  };
+  await db.books.add(book);
+  return book;
+}
+
+function str(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+/** Render the first PDF page to a JPEG cover. */
+async function renderPageCover(pdf: pdfjs.PDFDocumentProxy): Promise<Blob | null> {
+  try {
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: Math.min(300 / base.width, 2) });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    await page.render({ canvasContext: ctx, canvas, viewport } as never).promise;
+    return await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  } catch {
+    return null;
+  }
+}
+
+/** Parse an EPUB's OPF metadata + embedded cover image. */
+function parseEpub(buffer: ArrayBuffer) {
+  const files = unzipSync(new Uint8Array(buffer));
+  const find = (path: string) => files[path.replace(/\\/g, "/").replace(/^\.\//, "")];
+
+  const container = find("META-INF/container.xml");
+  let opfPath = "OEBPS/content.opf";
+  if (container) {
+    const doc = toXml(container);
+    opfPath = doc?.getElementsByTagName("rootfile")[0]?.getAttribute("full-path") ?? opfPath;
+  }
+  const doc = find(opfPath) ? toXml(find(opfPath)!) : null;
+
+  return {
+    title: doc ? tag(doc, "dc:title") : "",
+    author: doc ? tag(doc, "dc:creator") : "",
+    publisher: doc ? tag(doc, "dc:publisher") || undefined : undefined,
+    description: doc ? tag(doc, "dc:description") || undefined : undefined,
+    cover: doc ? extractEpubCover(doc, files, opfPath) : null,
+  };
+}
+
+export interface EpubTocItem {
+  id: string;
+  label: string;
+  href: string;
+}
+
+export interface EpubSection {
+  id: string;
+  href: string;
+  html: string;
+}
+
+export interface ParsedEpubContent {
+  title: string;
+  author: string;
+  toc: EpubTocItem[];
+  sections: EpubSection[];
+}
+
+export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
+  const files = unzipSync(new Uint8Array(buffer));
+  const find = (path: string) => files[path.replace(/\\/g, "/").replace(/^\.\//, "")];
+
+  const container = find("META-INF/container.xml");
+  let opfPath = "OEBPS/content.opf";
+  if (container) {
+    const doc = toXml(container);
+    opfPath = doc?.getElementsByTagName("rootfile")[0]?.getAttribute("full-path") ?? opfPath;
+  }
+
+  const opfBytes = find(opfPath);
+  if (!opfBytes) {
+    throw new Error("Invalid EPUB: content.opf not found");
+  }
+
+  const opfDoc = toXml(opfBytes);
+  if (!opfDoc) throw new Error("Could not parse content.opf");
+
+  const title = opfDoc.getElementsByTagName("dc:title")[0]?.textContent?.trim() || "Untitled";
+  const author = opfDoc.getElementsByTagName("dc:creator")[0]?.textContent?.trim() || "Unknown";
+
+  const opfDir = opfPath.replace(/[^/]*$/, "");
+  const resolveHref = (rel: string) => {
+    const parts = opfDir.split("/").filter(Boolean);
+    for (const part of decodeURIComponent(rel).replace(/^\/+/, "").replace(/\\/g, "/").split("/")) {
+      if (part === "..") parts.pop();
+      else if (part && part !== ".") parts.push(part);
+    }
+    return parts.join("/");
+  };
+
+  const items = Array.from(opfDoc.getElementsByTagName("item"));
+  const itemMap = new Map<string, { href: string; mediaType: string }>();
+  items.forEach((it) => {
+    const id = it.getAttribute("id");
+    const href = it.getAttribute("href");
+    const mediaType = it.getAttribute("media-type") || "";
+    if (id && href) {
+      itemMap.set(id, { href: resolveHref(href), mediaType });
+    }
+  });
+
+  const spineItemrefs = Array.from(opfDoc.getElementsByTagName("itemref"));
+  const sections: EpubSection[] = [];
+  const decoder = new TextDecoder();
+
+  spineItemrefs.forEach((ref, index) => {
+    const idref = ref.getAttribute("idref");
+    if (!idref) return;
+    const item = itemMap.get(idref);
+    if (!item) return;
+
+    const fileData = files[item.href];
+    if (fileData) {
+      let html = decoder.decode(fileData);
+      
+      html = html.replace(/<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi, (imgTag, src) => {
+        try {
+          const resolvedImgPath = resolveRelative(item.href, src);
+          const imgBytes = files[resolvedImgPath];
+          if (imgBytes) {
+            const ext = resolvedImgPath.split(".").pop()?.toLowerCase() || "jpeg";
+            const mime = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "svg" ? "image/svg+xml" : "image/jpeg";
+            const base64 = uint8ToBase64(imgBytes);
+            return imgTag.replace(src, `data:${mime};base64,${base64}`);
+          }
+        } catch {
+          // ignore
+        }
+        return imgTag;
+      });
+
+      html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+
+      sections.push({
+        id: idref || `section-${index}`,
+        href: item.href,
+        html,
+      });
+    }
+  });
+
+  const toc: EpubTocItem[] = [];
+  const ncxItem = Array.from(itemMap.values()).find((i) => i.mediaType === "application/x-dtbncx+xml");
+  if (ncxItem && files[ncxItem.href]) {
+    const ncxDoc = toXml(files[ncxItem.href]);
+    if (ncxDoc) {
+      const navPoints = Array.from(ncxDoc.getElementsByTagName("navPoint"));
+      navPoints.forEach((np, idx) => {
+        const label = np.getElementsByTagName("text")[0]?.textContent?.trim() || `Chapter ${idx + 1}`;
+        const contentSrc = np.getElementsByTagName("content")[0]?.getAttribute("src") || "";
+        toc.push({
+          id: np.getAttribute("id") || `toc-${idx}`,
+          label,
+          href: contentSrc,
+        });
+      });
+    }
+  }
+
+  if (toc.length === 0) {
+    sections.forEach((sec, idx) => {
+      toc.push({
+        id: sec.id,
+        label: `Section ${idx + 1}`,
+        href: sec.href,
+      });
+    });
+  }
+
+  return {
+    title,
+    author,
+    toc,
+    sections,
+  };
+}
+
+function resolveRelative(baseFile: string, relPath: string): string {
+  const dir = baseFile.replace(/[^/]*$/, "");
+  const parts = dir.split("/").filter(Boolean);
+  for (const part of decodeURIComponent(relPath).replace(/^\/+/, "").replace(/\\/g, "/").split("/")) {
+    if (part === "..") parts.pop();
+    else if (part && part !== ".") parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
