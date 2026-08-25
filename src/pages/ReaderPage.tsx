@@ -50,11 +50,13 @@ function PdfPageItem({
   pdfDoc,
   pageNumber,
   scale,
+  pageSize,
   onVisible,
 }: {
   pdfDoc: pdfjs.PDFDocumentProxy;
   pageNumber: number;
   scale: number;
+  pageSize: { width: number; height: number };
   onVisible: (pageNumber: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,6 +64,9 @@ function PdfPageItem({
   const [rendered, setRendered] = useState(false);
   const isIntersectingRef = useRef(false);
   const renderTaskRef = useRef<pdfjs.RenderTask | null>(null);
+
+  const expectedWidth = Math.round(pageSize.width * scale);
+  const expectedHeight = Math.round(pageSize.height * scale);
 
   const renderPage = async () => {
     if (renderTaskRef.current) {
@@ -126,8 +131,12 @@ function PdfPageItem({
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
       className="relative mb-6 shadow-2xl rounded-sm border border-neutral-800 bg-white"
+      style={{
+        width: `${expectedWidth}px`,
+        height: `${expectedHeight}px`,
+      }}
     >
-      <canvas ref={canvasRef} className="block" />
+      <canvas ref={canvasRef} className="block" width={expectedWidth} height={expectedHeight} />
       <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[10px] text-white pointer-events-none">
         Page {pageNumber}
       </div>
@@ -170,7 +179,8 @@ export function ReaderPage() {
   const [pdfNumPages, setPdfNumPages] = useState(0);
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1);
   const [pdfScale, setPdfScale] = useState(1.2);
-  const [pdfOutline, setPdfOutline] = useState<{ title: string; pageNumber: number }[]>([]);
+  const [pdfPageSize, setPdfPageSize] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
+  const [pdfOutline, setPdfOutline] = useState<{ title: string; pageNumber: number; depth?: number }[]>([]);
 
   const [epubDoc, setEpubDoc] = useState<ParsedEpubContent | null>(null);
   const [epubSectionIdx, setEpubSectionIdx] = useState(0);
@@ -243,23 +253,54 @@ export function ReaderPage() {
           setPdfNumPages(loadedPdf.numPages);
 
           try {
+            const firstPage = await loadedPdf.getPage(1);
+            const defaultViewport = firstPage.getViewport({ scale: 1 });
+            if (alive) {
+              setPdfPageSize({ width: defaultViewport.width, height: defaultViewport.height });
+            }
+          } catch {
+            // fallback
+          }
+
+          try {
             const outline = await loadedPdf.getOutline();
             if (outline?.length) {
-              const parsedOutline: { title: string; pageNumber: number }[] = [];
-              for (const item of outline) {
-                let pageNumber = 1;
-                if (item.dest) {
-                  const destRef =
-                    typeof item.dest === "string"
-                      ? await loadedPdf.getDestination(item.dest)
-                      : item.dest;
-                  if (Array.isArray(destRef) && destRef[0]) {
-                    pageNumber = (await loadedPdf.getPageIndex(destRef[0])) + 1;
+              const parseOutline = async (
+                nodes: unknown[],
+                depth = 0
+              ): Promise<{ title: string; pageNumber: number; depth: number }[]> => {
+                const list: { title: string; pageNumber: number; depth: number }[] = [];
+                for (const item of nodes as any[]) {
+                  let pageNumber = 1;
+                  if (item.dest) {
+                    try {
+                      let destRef = item.dest;
+                      if (typeof destRef === "string") {
+                        destRef = await loadedPdf.getDestination(destRef);
+                      }
+                      if (Array.isArray(destRef) && destRef[0]) {
+                        const pageIdx = await loadedPdf.getPageIndex(destRef[0]);
+                        pageNumber = pageIdx + 1;
+                      } else if (typeof destRef === "number") {
+                        pageNumber = destRef + 1;
+                      }
+                    } catch {
+                      // ignore destination parse error
+                    }
+                  }
+                  list.push({ title: item.title, pageNumber, depth });
+                  if (item.items && item.items.length > 0) {
+                    const children = await parseOutline(item.items, depth + 1);
+                    list.push(...children);
                   }
                 }
-                parsedOutline.push({ title: item.title, pageNumber });
+                return list;
+              };
+
+              const parsedOutline = await parseOutline(outline);
+              if (alive) {
+                setPdfOutline(parsedOutline);
               }
-              setPdfOutline(parsedOutline);
             }
           } catch {
             // fallback
@@ -540,8 +581,9 @@ export function ReaderPage() {
                               el.scrollIntoView({ behavior: "smooth", block: "start" });
                             }
                           }}
+                          style={{ paddingLeft: `${Math.max(10, (item.depth || 0) * 12 + 10)}px` }}
                           className={cn(
-                            "text-left text-xs py-2 px-2.5 rounded-md transition-colors flex items-center justify-between",
+                            "text-left text-xs py-2 pr-2.5 rounded-md transition-colors flex items-center justify-between",
                             pdfCurrentPage === item.pageNumber
                               ? "bg-primary/20 text-primary font-bold"
                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -559,12 +601,43 @@ export function ReaderPage() {
                       <button
                         key={t.id || idx}
                         onClick={() => {
-                          let targetIdx = epubDoc.sections.findIndex((s) => s.href.includes(t.href.split("#")[0]));
-                          if (targetIdx === -1) targetIdx = idx;
-                          setEpubSectionIdx(targetIdx);
-                          const el = document.getElementById(`epub-sec-${targetIdx}`);
-                          if (el) {
-                            el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          const [targetPath, targetHash] = t.href.split("#");
+                          const normalize = (p: string) => p.replace(/^\.?\/+/, "").toLowerCase();
+
+                          let targetIdx = -1;
+                          if (targetPath) {
+                            const normTarget = normalize(targetPath);
+                            targetIdx = epubDoc.sections.findIndex((s) => {
+                              const normSec = normalize(s.href);
+                              return (
+                                normSec === normTarget ||
+                                normSec.endsWith("/" + normTarget) ||
+                                normTarget.endsWith("/" + normSec)
+                              );
+                            });
+                          }
+
+                          if (targetIdx === -1 && !targetPath && targetHash) {
+                            targetIdx = epubSectionIdx;
+                          }
+
+                          if (targetIdx !== -1) {
+                            setEpubSectionIdx(targetIdx);
+                          }
+
+                          if (targetHash) {
+                            const anchorEl =
+                              document.getElementById(targetHash) ||
+                              document.querySelector(`[name="${targetHash}"]`);
+                            if (anchorEl) {
+                              anchorEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                              return;
+                            }
+                          }
+
+                          const secEl = document.getElementById(`epub-sec-${targetIdx !== -1 ? targetIdx : 0}`);
+                          if (secEl) {
+                            secEl.scrollIntoView({ behavior: "smooth", block: "start" });
                           }
                         }}
                         className={cn(
@@ -653,6 +726,7 @@ export function ReaderPage() {
                   pdfDoc={pdfDoc}
                   pageNumber={idx + 1}
                   scale={pdfScale}
+                  pageSize={pdfPageSize}
                   onVisible={(page) => {
                     setPdfCurrentPage(page);
                     saveProgress.mutate({

@@ -229,12 +229,43 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
       navPoints.forEach((np: Element, idx: number) => {
         const label = np.getElementsByTagName("text")[0]?.textContent?.trim() || `Chapter ${idx + 1}`;
         const contentSrc = np.getElementsByTagName("content")[0]?.getAttribute("src") || "";
+        const [filePath, hash] = contentSrc.split("#");
+        const resolvedPath = filePath ? resolveRelative(ncxItem.href, filePath) : "";
+        const finalHref = resolvedPath ? (hash ? `${resolvedPath}#${hash}` : resolvedPath) : contentSrc;
         toc.push({
           id: np.getAttribute("id") || `toc-${idx}`,
           label,
-          href: contentSrc,
+          href: finalHref,
         });
       });
+    }
+  }
+
+  // Fallback to EPUB3 Navigation Document
+  if (toc.length === 0) {
+    const navItem = items.find((it) => it.getAttribute("properties")?.includes("nav"));
+    if (navItem) {
+      const rawHref = navItem.getAttribute("href") || "";
+      const navHref = resolveHref(rawHref);
+      const navBytes = files[navHref];
+      if (navBytes) {
+        const navDoc = toXml(navBytes);
+        if (navDoc) {
+          const links = Array.from(navDoc.querySelectorAll("nav[epub\\:type='toc'] a, nav#toc a, nav a"));
+          links.forEach((a, idx) => {
+            const hrefAttr = a.getAttribute("href") || "";
+            const [filePath, hash] = hrefAttr.split("#");
+            const resolvedPath = filePath ? resolveRelative(navHref, filePath) : "";
+            const finalHref = resolvedPath ? (hash ? `${resolvedPath}#${hash}` : resolvedPath) : hrefAttr;
+            const label = a.textContent?.trim() || `Chapter ${idx + 1}`;
+            toc.push({
+              id: `nav-${idx}`,
+              label,
+              href: finalHref,
+            });
+          });
+        }
+      }
     }
   }
 
