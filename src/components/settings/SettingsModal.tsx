@@ -55,6 +55,7 @@ const PREVIEW_FIELDS: { key: keyof AppSettings; label: string }[] = [
   { key: "showSubtitle", label: "Subtitle" },
   { key: "showAuthor", label: "Author" },
   { key: "showRating", label: "Rating" },
+  { key: "showProgress", label: "Reading Progress" },
   { key: "showTags", label: "Tags" },
   { key: "showDescription", label: "Description" },
 ];

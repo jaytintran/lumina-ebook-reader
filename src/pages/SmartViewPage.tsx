@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Building2, Tag, User } from "lucide-react";
+import { BookOpen, Building2, Star, Tag, User } from "lucide-react";
 import { BookGrid } from "@/components/book/BookGrid";
 import { useBooks } from "@/db/hooks";
 import type { Book } from "@/db/schema";
@@ -53,12 +53,43 @@ const GROUPERS: Record<string, (books: Book[]) => Group[]> = {
     }
     return res;
   },
+  Ratings: (books) => {
+    const ratingBuckets: { [rating: number]: Book[] } = {
+      5: [],
+      4: [],
+      3: [],
+      2: [],
+      1: [],
+      0: [],
+    };
+    for (const b of books) {
+      const r = Math.max(0, Math.min(5, Math.floor(b.rating ?? 0)));
+      ratingBuckets[r].push(b);
+    }
+    const res: Group[] = [];
+    for (let r = 5; r >= 1; r--) {
+      if (ratingBuckets[r].length > 0) {
+        res.push({
+          key: `${r} Star${r > 1 ? "s" : ""}`,
+          books: ratingBuckets[r].sort((x, y) => x.order - y.order),
+        });
+      }
+    }
+    if (ratingBuckets[0].length > 0) {
+      res.push({
+        key: "Unrated",
+        books: ratingBuckets[0].sort((x, y) => x.order - y.order),
+      });
+    }
+    return res;
+  },
 };
 
 const VIEW_ICONS: Record<string, typeof User> = {
   Authors: User,
   Publishers: Building2,
   Tags: Tag,
+  Ratings: Star,
 };
 
 export function SmartViewPage({ viewLabel }: { viewLabel: string }) {

@@ -24,6 +24,7 @@ export const router = createBrowserRouter([
         element: <SmartViewPage viewLabel="Publishers" />,
       },
       { path: "/tags", element: <SmartViewPage viewLabel="Tags" /> },
+      { path: "/ratings", element: <SmartViewPage viewLabel="Ratings" /> },
     ],
   },
   { path: "/reader/:bookId", element: <ReaderPage /> },

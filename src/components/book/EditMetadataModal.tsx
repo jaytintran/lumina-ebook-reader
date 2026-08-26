@@ -94,6 +94,7 @@ export function EditMetadataModal({
   const [author, setAuthor] = useState(book.author);
   const [publisher, setPublisher] = useState(book.publisher ?? "");
   const [rating, setRating] = useState(book.rating);
+  const [progress, setProgress] = useState(book.progress ?? 0);
   const [tags, setTags] = useState(book.tags.join(", "));
   const [description, setDescription] = useState(book.description ?? "");
   const [status, setStatus] = useState<ReadingStatus | "">(
@@ -119,6 +120,7 @@ export function EditMetadataModal({
         author: author.trim() || "Unknown",
         publisher: publisher.trim() || undefined,
         rating,
+        progress,
         tags: tags
           .split(",")
           .map((t) => t.trim())
@@ -195,6 +197,21 @@ export function EditMetadataModal({
             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
               Rating
               <RatingInput value={rating} onChange={setRating} />
+            </div>
+            <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span>Reading Progress</span>
+                <span className="font-semibold text-primary">{progress}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={progress}
+                onChange={(e) => setProgress(Number(e.target.value))}
+                className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-secondary accent-primary"
+              />
             </div>
             <Field label="Tags (comma separated)">
               <Input value={tags} onChange={(e) => setTags(e.target.value)} />

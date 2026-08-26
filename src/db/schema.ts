@@ -7,6 +7,7 @@ export interface Book {
   author: string;
   publisher?: string;
   rating: number; // 0-5
+  progress?: number; // 0-100 percentage
   tags: string[];
   description?: string;
   readingStatus?: ReadingStatus | null;
@@ -22,6 +23,7 @@ export interface Collection {
   id?: number;
   name: string;
   order: number;
+  icon?: string;
 }
 
 export interface Folder {
@@ -104,6 +106,7 @@ export interface AppSettings {
   showSubtitle: boolean;
   showAuthor: boolean;
   showRating: boolean;
+  showProgress: boolean;
   showTags: boolean;
   showDescription: boolean;
   sources: Source[];
@@ -117,6 +120,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showSubtitle: true,
   showAuthor: true,
   showRating: true,
+  showProgress: true,
   showTags: true,
   showDescription: true,
   sources: [],

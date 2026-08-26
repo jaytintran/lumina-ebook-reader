@@ -86,6 +86,7 @@ export function ReaderPage() {
   const [metaAuthor, setMetaAuthor] = useState("");
   const [metaPublisher, setMetaPublisher] = useState("");
   const [metaRating, setMetaRating] = useState(0);
+  const [metaProgress, setMetaProgress] = useState(0);
   const [metaTags, setMetaTags] = useState("");
   const [metaDesc, setMetaDesc] = useState("");
   const [metaSaved, setMetaSaved] = useState(false);
@@ -105,6 +106,7 @@ export function ReaderPage() {
       setMetaAuthor(book.author);
       setMetaPublisher(book.publisher ?? "");
       setMetaRating(book.rating);
+      setMetaProgress(book.progress ?? 0);
       setMetaTags(book.tags.join(", "));
       setMetaDesc(book.description ?? "");
     }
@@ -256,6 +258,7 @@ export function ReaderPage() {
         author: metaAuthor.trim() || "Unknown",
         publisher: metaPublisher.trim() || undefined,
         rating: metaRating,
+        progress: metaProgress,
         tags: metaTags.split(",").map((t) => t.trim()).filter(Boolean),
         description: metaDesc.trim() || undefined,
       },
@@ -555,6 +558,7 @@ export function ReaderPage() {
             metaAuthor={metaAuthor}
             metaPublisher={metaPublisher}
             metaRating={metaRating}
+            metaProgress={metaProgress}
             metaTags={metaTags}
             metaDesc={metaDesc}
             metaSaved={metaSaved}
@@ -563,6 +567,7 @@ export function ReaderPage() {
             onChangeMetaAuthor={setMetaAuthor}
             onChangeMetaPublisher={setMetaPublisher}
             onChangeMetaRating={setMetaRating}
+            onChangeMetaProgress={setMetaProgress}
             onChangeMetaTags={setMetaTags}
             onChangeMetaDesc={setMetaDesc}
             onSaveMetadata={handleSaveMetadata}

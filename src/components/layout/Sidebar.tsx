@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
   Heart,
@@ -7,34 +7,37 @@ import {
   Bookmark,
   CheckCircle2,
   Plus,
-  Folder,
   Users,
   Building2,
   Tag,
+  Star,
+  Shuffle,
   GripVertical,
+  Trash2,
+  Check,
 } from "lucide-react";
-import {
-  DndContext,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
-  arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import {
+  useBooks,
   useCollections,
   useSaveCollections,
+  useDeleteCollection,
 } from "@/db/hooks";
+import type { Collection } from "@/db/schema";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FolderIcon, FOLDER_ICONS } from "@/components/folder/FolderPillStrip";
 
 const primaryNav = [
   { to: "/", label: "Home", icon: Home, dropId: "sidebar-nav-home" },
@@ -48,6 +51,7 @@ const smartViews = [
   { to: "/authors", label: "Authors", icon: Users },
   { to: "/publishers", label: "Publishers", icon: Building2 },
   { to: "/tags", label: "Tags", icon: Tag },
+  { to: "/ratings", label: "Ratings", icon: Star },
 ];
 
 function DroppableNavItem({
@@ -90,8 +94,14 @@ function DroppableNavItem({
 function SortableCollectionItem({
   collection,
 }: {
-  collection: { id?: number; name: string; order: number };
+  collection: Collection;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(collection.name);
+  const saveCollections = useSaveCollections();
+  const deleteCollection = useDeleteCollection();
+  const navigate = useNavigate();
+
   const {
     attributes,
     listeners,
@@ -99,22 +109,132 @@ function SortableCollectionItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: collection.id! });
+    isOver,
+  } = useSortable({ id: `sidebar-collection-${collection.id}` });
 
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `sidebar-collection-${collection.id}`,
-  });
+  const handleSave = async (iconToSave?: string, close = true) => {
+    const trimmed = name.trim();
+    const finalName = trimmed || collection.name;
+    const finalIcon = iconToSave !== undefined ? iconToSave : collection.icon;
+    await saveCollections.mutateAsync([
+      {
+        ...collection,
+        name: finalName,
+        icon: finalIcon || undefined,
+      },
+    ]);
+    if (close) {
+      setEditing(false);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (collection.id) {
+      await deleteCollection.mutateAsync(collection.id);
+      navigate("/");
+    }
+  };
+
+  if (editing) {
+    return (
+      <div
+        ref={setNodeRef}
+        className="flex items-center gap-1 rounded-md bg-accent/70 p-1 ring-1 ring-primary/40"
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background hover:bg-accent text-primary transition-colors cursor-pointer"
+                title="Change icon"
+              />
+            }
+          >
+            <FolderIcon name={collection.icon} className="h-3.5 w-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56 p-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 pb-1 block">
+              Choose Icon
+            </span>
+            <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto p-0.5">
+              {FOLDER_ICONS.map(({ key, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleSave(collection.icon === key ? "" : key, false)}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded border transition-colors cursor-pointer",
+                    collection.icon === key
+                      ? "border-primary bg-primary/20 text-primary"
+                      : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                  title={key}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") {
+              setName(collection.name);
+              setEditing(false);
+            }
+          }}
+          className="h-7 flex-1 text-xs px-2"
+        />
+
+        <button
+          type="button"
+          onClick={() => handleSave()}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-primary hover:bg-primary/15 transition-colors cursor-pointer"
+          title="Save changes"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={handleDelete}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-destructive/15 transition-colors cursor-pointer"
+          title="Delete collection"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={setNodeRef}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setName(collection.name);
+        setEditing(true);
+      }}
+      title="Right-click to edit or delete"
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.3 : undefined,
         zIndex: isDragging ? 20 : undefined,
       }}
-      className="group/col flex items-center rounded-md"
+      className={cn(
+        "group/col flex items-center rounded-md transition-all",
+        isOver && !isDragging && "bg-primary/25 ring-2 ring-primary scale-[1.02] shadow-sm",
+      )}
     >
       <div
         {...attributes}
@@ -124,13 +244,7 @@ function SortableCollectionItem({
         <GripVertical className="h-3.5 w-3.5" />
       </div>
 
-      <div
-        ref={setDropRef}
-        className={cn(
-          "flex-1 rounded-md transition-all",
-          isOver && "bg-primary/25 ring-2 ring-primary scale-[1.02] shadow-sm",
-        )}
-      >
+      <div className="flex-1 rounded-md min-w-0">
         <NavLink
           to={`/collections/${collection.id}`}
           className={({ isActive }) =>
@@ -139,11 +253,11 @@ function SortableCollectionItem({
               isActive
                 ? "bg-primary/15 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              isOver && "text-primary font-semibold",
+              isOver && !isDragging && "text-primary font-semibold",
             )
           }
         >
-          <Folder className="h-4 w-4 shrink-0 text-primary/80" />
+          <FolderIcon name={collection.icon} className="h-4 w-4 shrink-0 text-primary/80" />
           <span className="whitespace-nowrap truncate">{collection.name}</span>
         </NavLink>
       </div>
@@ -152,24 +266,21 @@ function SortableCollectionItem({
 }
 
 export function Sidebar() {
+  const { data: books = [] } = useBooks();
   const { data: collections = [] } = useCollections();
   const saveCollections = useSaveCollections();
+  const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 6,
-      },
-    }),
-  );
+  const handleRandomBook = () => {
+    if (books.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * books.length);
+    const chosen = books[randomIndex];
+    if (chosen?.id) {
+      navigate(`/reader/${chosen.id}`);
+    }
+  };
 
   const addCollection = async () => {
     const trimmed = name.trim();
@@ -177,22 +288,6 @@ export function Sidebar() {
     await saveCollections.mutateAsync([{ name: trimmed, order: collections.length }]);
     setName("");
     setAdding(false);
-  };
-
-  const handleCollectionDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = collections.findIndex((c) => c.id === active.id);
-    const newIndex = collections.findIndex((c) => c.id === over.id);
-
-    if (oldIndex !== -1 && newIndex !== -1) {
-      const reordered = arrayMove(collections, oldIndex, newIndex).map((c, idx) => ({
-        ...c,
-        order: idx,
-      }));
-      saveCollections.mutate(reordered);
-    }
   };
 
   return (
@@ -226,6 +321,17 @@ export function Sidebar() {
       <nav className="flex flex-1 flex-col gap-6 overflow-y-auto overflow-x-hidden px-3 pb-4">
         {/* Primary Sections (Drop Targets) */}
         <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={handleRandomBook}
+            disabled={books.length === 0}
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all whitespace-nowrap text-muted-foreground hover:bg-primary/15 hover:text-primary disabled:opacity-40 disabled:pointer-events-none cursor-pointer group"
+            title={books.length ? "Read a random book" : "No books in library"}
+          >
+            <Shuffle className="h-4 w-4 shrink-0 transition-transform group-hover:rotate-180 duration-300 text-primary" />
+            <span className="whitespace-nowrap font-medium">Random Book</span>
+          </button>
+
           {primaryNav.map((item) => (
             <DroppableNavItem
               key={item.to}
@@ -267,18 +373,16 @@ export function Sidebar() {
             </div>
           )}
 
-          <DndContext sensors={sensors} onDragEnd={handleCollectionDragEnd}>
-            <SortableContext
-              items={collections.map((c) => c.id!)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="flex flex-col gap-0.5">
-                {collections.map((c) => (
-                  <SortableCollectionItem key={c.id} collection={c} />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <SortableContext
+            items={collections.map((c) => `sidebar-collection-${c.id}`)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="flex flex-col gap-0.5">
+              {collections.map((c) => (
+                <SortableCollectionItem key={c.id} collection={c} />
+              ))}
+            </div>
+          </SortableContext>
         </div>
 
         {/* Smart Views */}

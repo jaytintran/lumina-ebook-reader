@@ -43,6 +43,7 @@ interface ReaderSidebarRightProps {
   metaAuthor: string;
   metaPublisher: string;
   metaRating: number;
+  metaProgress: number;
   metaTags: string;
   metaDesc: string;
   metaSaved: boolean;
@@ -51,6 +52,7 @@ interface ReaderSidebarRightProps {
   onChangeMetaAuthor: (v: string) => void;
   onChangeMetaPublisher: (v: string) => void;
   onChangeMetaRating: (v: number) => void;
+  onChangeMetaProgress: (v: number) => void;
   onChangeMetaTags: (v: string) => void;
   onChangeMetaDesc: (v: string) => void;
   onSaveMetadata: () => void;
@@ -80,6 +82,7 @@ export function ReaderSidebarRight({
   metaAuthor,
   metaPublisher,
   metaRating,
+  metaProgress,
   metaTags,
   metaDesc,
   metaSaved,
@@ -88,6 +91,7 @@ export function ReaderSidebarRight({
   onChangeMetaAuthor,
   onChangeMetaPublisher,
   onChangeMetaRating,
+  onChangeMetaProgress,
   onChangeMetaTags,
   onChangeMetaDesc,
   onSaveMetadata,
@@ -392,6 +396,22 @@ export function ReaderSidebarRight({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5 text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Reading Progress</span>
+                  <span className="font-semibold text-primary">{metaProgress}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={metaProgress}
+                  onChange={(e) => onChangeMetaProgress(Number(e.target.value))}
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-secondary accent-primary"
+                />
               </div>
 
               <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">

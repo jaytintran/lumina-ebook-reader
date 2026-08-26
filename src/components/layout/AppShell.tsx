@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors,
   DragOverlay,
+  pointerWithin,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -22,7 +23,10 @@ import {
   useAddBooksToCollection,
   useAddBooksToFolder,
   useReorderGlobal,
+  useCollections,
+  useSaveCollections,
 } from "@/db/hooks";
+import { useUIStore } from "@/stores/uiStore";
 import { useCover } from "@/lib/useCover";
 import type { Book } from "@/db/schema";
 
@@ -36,20 +40,26 @@ const snapCenterToCursor: Modifier = ({
   overlayNodeRect,
   transform,
 }) => {
-  if (activatorEvent && (overlayNodeRect || activeNodeRect)) {
-    const rect = overlayNodeRect ?? activeNodeRect;
-    if (rect && "clientX" in activatorEvent && "clientY" in activatorEvent) {
-      const mouseX = (activatorEvent as MouseEvent).clientX;
-      const mouseY = (activatorEvent as MouseEvent).clientY;
-      const originX = rect.left + rect.width / 2;
-      const originY = rect.top + rect.height / 2;
+  if (
+    activatorEvent &&
+    activeNodeRect &&
+    "clientX" in activatorEvent &&
+    "clientY" in activatorEvent
+  ) {
+    const mouseX = (activatorEvent as MouseEvent).clientX;
+    const mouseY = (activatorEvent as MouseEvent).clientY;
 
-      return {
-        ...transform,
-        x: transform.x + mouseX - originX,
-        y: transform.y + mouseY - originY,
-      };
-    }
+    const width = overlayNodeRect ? overlayNodeRect.width : activeNodeRect.width;
+    const height = overlayNodeRect ? overlayNodeRect.height : activeNodeRect.height;
+
+    const originX = activeNodeRect.left + width / 2;
+    const originY = activeNodeRect.top + height / 2;
+
+    return {
+      ...transform,
+      x: transform.x + (mouseX - originX),
+      y: transform.y + (mouseY - originY),
+    };
   }
   return transform;
 };
@@ -130,6 +140,19 @@ function DraggedBookOverlay({ book }: { book: Book }) {
                 ))}
               </div>
             )}
+            {(settings?.showProgress ?? true) && (
+              <div className="flex items-center gap-2 pt-0.5">
+                <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full"
+                    style={{ width: `${book.progress ?? 0}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold text-primary">
+                  {book.progress ?? 0}%
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -206,6 +229,19 @@ function DraggedBookOverlay({ book }: { book: Book }) {
               ))}
             </div>
           )}
+          {(settings?.showProgress ?? true) && (
+            <div className="flex items-center gap-2 pt-0.5">
+              <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${book.progress ?? 0}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-semibold text-primary">
+                {book.progress ?? 0}%
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -215,6 +251,8 @@ function DraggedBookOverlay({ book }: { book: Book }) {
 export function AppShell() {
   const { data: settings } = useSettings();
   const { data: books = [] } = useBooks();
+  const { data: collections = [] } = useCollections();
+  const saveCollections = useSaveCollections();
   const updateBook = useUpdateBook();
   const addToCollection = useAddBooksToCollection();
   const addToFolder = useAddBooksToFolder();
@@ -255,43 +293,85 @@ export function AppShell() {
     setActiveBook(null);
     const { active, over } = e;
     if (!over) return;
+
+    const activeIdStr = String(active.id);
+    const overIdStr = String(over.id);
+
+    // 1. Sidebar collection reordering
+    if (activeIdStr.startsWith("sidebar-collection-")) {
+      const activeColId = Number(activeIdStr.slice("sidebar-collection-".length));
+      if (overIdStr.startsWith("sidebar-collection-")) {
+        const overColId = Number(overIdStr.slice("sidebar-collection-".length));
+        if (!Number.isNaN(activeColId) && !Number.isNaN(overColId) && activeColId !== overColId) {
+          const oldIndex = collections.findIndex((c) => c.id === activeColId);
+          const newIndex = collections.findIndex((c) => c.id === overColId);
+          if (oldIndex !== -1 && newIndex !== -1) {
+            const reordered = arrayMove(collections, oldIndex, newIndex).map((c, idx) => ({
+              ...c,
+              order: idx,
+            }));
+            saveCollections.mutate(reordered);
+          }
+        }
+      }
+      return;
+    }
+
+    // 2. Book drag & drop targets
     const activeId = active.id as number;
-    const overId = String(over.id);
     if (activeId === (over.id as unknown)) return;
 
-    // 1. Sidebar primary navigation drop targets
-    if (overId === "sidebar-nav-favorites") {
-      updateBook.mutate({ id: activeId, patch: { isFavorite: true } });
+    const selectedIds = useUIStore.getState().selectedIds;
+    const targetBookIds =
+      selectedIds.length > 0 && selectedIds.includes(activeId)
+        ? selectedIds
+        : [activeId];
+
+    // 2a. Sidebar primary navigation drop targets
+    if (overIdStr === "sidebar-nav-favorites") {
+      targetBookIds.forEach((id) => {
+        updateBook.mutate({ id, patch: { isFavorite: true } });
+      });
       return;
     }
-    if (overId === "sidebar-nav-reading") {
-      updateBook.mutate({ id: activeId, patch: { readingStatus: "currently-reading" } });
+    if (overIdStr === "sidebar-nav-reading") {
+      targetBookIds.forEach((id) => {
+        updateBook.mutate({ id, patch: { readingStatus: "currently-reading" } });
+      });
       return;
     }
-    if (overId === "sidebar-nav-wanna-read") {
-      updateBook.mutate({ id: activeId, patch: { readingStatus: "wanna-read" } });
+    if (overIdStr === "sidebar-nav-wanna-read") {
+      targetBookIds.forEach((id) => {
+        updateBook.mutate({ id, patch: { readingStatus: "wanna-read" } });
+      });
       return;
     }
-    if (overId === "sidebar-nav-finished") {
-      updateBook.mutate({ id: activeId, patch: { readingStatus: "finished" } });
+    if (overIdStr === "sidebar-nav-finished") {
+      targetBookIds.forEach((id) => {
+        updateBook.mutate({ id, patch: { readingStatus: "finished" } });
+      });
       return;
     }
 
-    // 2. Sidebar collections drop targets
-    if (overId.startsWith("sidebar-collection-")) {
-      const colId = Number(overId.slice("sidebar-collection-".length));
-      addToCollection.mutate({ bookIds: [activeId], collectionId: colId });
+    // 2b. Sidebar collections drop targets
+    if (overIdStr.startsWith("sidebar-collection-")) {
+      const colId = Number(overIdStr.slice("sidebar-collection-".length));
+      if (!Number.isNaN(colId)) {
+        addToCollection.mutate({ bookIds: targetBookIds, collectionId: colId });
+      }
       return;
     }
 
-    // 3. In-page folder drop targets
-    if (overId.startsWith("folder-")) {
-      const folderId = Number(overId.slice("folder-".length));
-      addToFolder.mutate({ bookIds: [activeId], folderId });
+    // 2c. In-page folder drop targets
+    if (overIdStr.startsWith("folder-")) {
+      const folderId = Number(overIdStr.slice("folder-".length));
+      if (!Number.isNaN(folderId)) {
+        addToFolder.mutate({ bookIds: targetBookIds, folderId });
+      }
       return;
     }
 
-    // 4. Global book reordering
+    // 2d. Global book reordering
     if (typeof over.id === "number") {
       const list = books.map((b) => b.id!);
       const oldI = list.indexOf(activeId);
@@ -303,7 +383,12 @@ export function AppShell() {
   };
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden">

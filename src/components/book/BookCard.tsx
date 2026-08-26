@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Check, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
-import { useSettings } from "@/db/hooks";
+import { useSettings, useUpdateBook } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 import { BookContextMenu } from "./BookContextMenu";
@@ -19,6 +19,7 @@ export function BookCard({
   scopeId?: string;
 }) {
   const { data: settings } = useSettings();
+  const updateBook = useUpdateBook();
   const coverUrl = useCover(book.coverKey);
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -136,6 +137,33 @@ export function BookCard({
                       )}
                     />
                   ))}
+                </div>
+              )}
+              {(settings?.showProgress ?? true) && (
+                <div
+                  className="flex flex-col gap-1 pt-1"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium">
+                    <span>Progress</span>
+                    <span className="font-semibold text-primary">{book.progress ?? 0}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={book.progress ?? 0}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateBook.mutate({
+                        id: book.id!,
+                        patch: { progress: Number(e.target.value) },
+                      });
+                    }}
+                    className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-secondary accent-primary hover:h-2 transition-all"
+                  />
                 </div>
               )}
               {(settings?.showTags ?? true) && book.tags.length > 0 && (
