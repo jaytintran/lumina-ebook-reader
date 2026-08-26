@@ -111,18 +111,20 @@ function DraggedBookOverlay({ book }: { book: Book }) {
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h3 className="truncate text-sm font-semibold leading-snug">
-              {book.title}
-            </h3>
-            {(settings?.showSubtitle ?? true) && book.subtitle && (
-              <p className="truncate text-xs text-muted-foreground">
-                {book.subtitle}
-              </p>
-            )}
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="flex flex-col gap-0.5">
+              <h3 className="truncate text-sm font-semibold leading-snug">
+                {book.title}
+              </h3>
+              {(settings?.showSubtitle ?? true) && book.subtitle && (
+                <p className="truncate text-[11px] italic font-normal text-muted-foreground/80 leading-tight">
+                  {book.subtitle}
+                </p>
+              )}
+            </div>
             {(settings?.showAuthor ?? true) && (
-              <p className="truncate text-xs text-muted-foreground">
-                {book.author} · {book.fileType.toUpperCase()}
+              <p className="truncate text-xs font-medium text-foreground/80">
+                {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
               </p>
             )}
             {(settings?.showRating ?? true) && (
@@ -205,13 +207,20 @@ function DraggedBookOverlay({ book }: { book: Book }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-1">
-          <h3 className="truncate text-sm font-semibold leading-snug">
-            {book.title}
-          </h3>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="truncate text-sm font-semibold leading-snug">
+              {book.title}
+            </h3>
+            {(settings?.showSubtitle ?? true) && book.subtitle && (
+              <p className="truncate text-[11px] italic font-normal text-muted-foreground/80 leading-tight">
+                {book.subtitle}
+              </p>
+            )}
+          </div>
           {(settings?.showAuthor ?? true) && (
-            <p className="truncate text-xs text-muted-foreground">
-              {book.author} · {book.fileType.toUpperCase()}
+            <p className="truncate text-xs font-medium text-foreground/80">
+              {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
             </p>
           )}
           {(settings?.showRating ?? true) && (

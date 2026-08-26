@@ -8,6 +8,8 @@ export const useUIStore = create<{
   selectedIds: number[];
   toggleSelected: (id: number) => void;
   clearSelection: () => void;
+  isEditingMetadata: boolean;
+  setIsEditingMetadata: (editing: boolean) => void;
 }>((set) => ({
   settingsOpen: false,
   setSettingsOpen: (open) => set({ settingsOpen: open }),
@@ -21,4 +23,6 @@ export const useUIStore = create<{
         : [...s.selectedIds, id],
     })),
   clearSelection: () => set({ selectedIds: [] }),
+  isEditingMetadata: false,
+  setIsEditingMetadata: (editing) => set({ isEditingMetadata: editing }),
 }));

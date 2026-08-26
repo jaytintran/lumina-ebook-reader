@@ -8,6 +8,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { BookCard } from "./BookCard";
 import { BookRow } from "./BookRow";
 import { useSettings } from "@/db/hooks";
+import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 
 export type SortableMode = "global" | { folderId: number };
@@ -15,9 +16,11 @@ export type SortableMode = "global" | { folderId: number };
 function SortableItem({
   id,
   children,
+  disabled,
 }: {
   id: number;
   children: ReactNode;
+  disabled?: boolean;
 }) {
   const {
     attributes,
@@ -26,7 +29,7 @@ function SortableItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled });
   return (
     <div
       ref={setNodeRef}
@@ -37,7 +40,7 @@ function SortableItem({
         zIndex: isDragging ? 10 : undefined,
       }}
       {...attributes}
-      {...listeners}
+      {...(disabled ? {} : listeners)}
     >
       {children}
     </div>
@@ -56,6 +59,7 @@ export function BookGrid({
   sortable?: SortableMode;
 }) {
   const { data: settings } = useSettings();
+  const isEditingMetadata = useUIStore((s) => s.isEditingMetadata);
   const cols = settings?.booksPerRow ?? 4;
   const Row = settings?.viewMode === "row" ? BookRow : BookCard;
 
@@ -71,7 +75,11 @@ export function BookGrid({
     >
       {books.map((book) =>
         sortable ? (
-          <SortableItem key={book.id} id={book.id!}>
+          <SortableItem
+            key={book.id}
+            id={book.id!}
+            disabled={isEditingMetadata}
+          >
             <Row book={book} scopeType={scopeType} scopeId={scopeId} />
           </SortableItem>
         ) : (
