@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Heart, Pencil, Trash2 } from "lucide-react";
+import { BookOpen, CheckSquare, Heart, Pencil, Trash2 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -19,6 +19,7 @@ import {
   useFolders,
   useUpdateBook,
 } from "@/db/hooks";
+import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 import { FolderIcon } from "@/components/folder/FolderPillStrip";
 
@@ -49,6 +50,8 @@ export function BookContextMenu({
   const addToFolder = useAddBooksToFolder();
   const { data: collections = [] } = useCollections();
   const { data: folders = [] } = useFolders(scopeType ?? "none", scopeId ?? "none");
+  const selected = useUIStore((s) => s.selectedIds.includes(book.id!));
+  const toggleSelected = useUIStore((s) => s.toggleSelected);
 
   return (
     <ContextMenu>
@@ -58,6 +61,10 @@ export function BookContextMenu({
       <ContextMenuContent>
         <ContextMenuItem onClick={() => navigate(`/reader/${book.id}`)}>
           <BookOpen /> Open
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => toggleSelected(book.id!)}>
+          <CheckSquare className={selected ? "text-primary" : ""} />
+          {selected ? "Deselect" : "Select"}
         </ContextMenuItem>
         <ContextMenuItem onClick={onEdit}>
           <Pencil /> Edit Metadata

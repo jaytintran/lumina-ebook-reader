@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,49 @@ export function BookRow({
   const selected = useUIStore((s) => s.selectedIds.includes(book.id!));
   const toggleSelected = useUIStore((s) => s.toggleSelected);
 
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isLongPressRef = useRef(false);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    startPosRef.current = { x: e.clientX, y: e.clientY };
+    isLongPressRef.current = false;
+    timerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      toggleSelected(book.id!);
+      try {
+        navigator.vibrate?.(40);
+      } catch {
+        // ignore
+      }
+    }, 500);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!startPosRef.current || !timerRef.current) return;
+    const dist = Math.hypot(
+      e.clientX - startPosRef.current.x,
+      e.clientY - startPosRef.current.y,
+    );
+    if (dist > 8) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const handlePointerUpOrCancel = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   const handleClick = () => {
+    if (isLongPressRef.current) {
+      isLongPressRef.current = false;
+      return;
+    }
     if (hasSelection) {
       toggleSelected(book.id!);
     } else {
@@ -49,6 +91,10 @@ export function BookRow({
             selected && "border-primary bg-primary/10 ring-2 ring-primary shadow-md",
             hasSelection && !selected && "opacity-40 hover:opacity-75",
           )}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUpOrCancel}
+          onPointerCancel={handlePointerUpOrCancel}
           onClick={handleClick}
         >
           <button
