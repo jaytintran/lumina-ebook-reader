@@ -42,21 +42,22 @@ export function ImportButton() {
         onChange={(e) => onFiles(e.target.files)}
       />
       <Tooltip>
-        {/* @ts-expect-error */}
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={busy}
-            onClick={() => inputRef.current?.click()}
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+            </Button>
+          }
+        />
         <TooltipContent>{busy ? "Importing…" : "Import books"}</TooltipContent>
       </Tooltip>
     </>

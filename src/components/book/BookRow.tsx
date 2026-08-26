@@ -22,7 +22,7 @@ export function BookRow({
   const updateBook = useUpdateBook();
   const coverUrl = useCover(book.coverKey);
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
+  const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null);
   const hasSelection = useUIStore((s) => s.selectedIds.length > 0);
   const selected = useUIStore((s) => s.selectedIds.includes(book.id!));
   const toggleSelected = useUIStore((s) => s.toggleSelected);
@@ -73,15 +73,20 @@ export function BookRow({
     if (hasSelection) {
       toggleSelected(book.id!);
     } else {
-      navigate(`/reader/${book.id}`);
+      setModalMode("view");
     }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/reader/${book.id}`);
   };
 
   return (
     <>
       <BookContextMenu
         book={book}
-        onEdit={() => setEditing(true)}
+        onEdit={() => setModalMode("edit")}
         scopeType={scopeType}
         scopeId={scopeId}
       >
@@ -96,6 +101,7 @@ export function BookRow({
           onPointerUp={handlePointerUpOrCancel}
           onPointerCancel={handlePointerUpOrCancel}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
         >
           <button
             onClick={(e) => {
@@ -230,8 +236,12 @@ export function BookRow({
           </div>
         </div>
       </BookContextMenu>
-      {editing && (
-        <EditMetadataModal book={book} onClose={() => setEditing(false)} />
+      {modalMode && (
+        <EditMetadataModal
+          book={book}
+          initialMode={modalMode}
+          onClose={() => setModalMode(null)}
+        />
       )}
     </>
   );
