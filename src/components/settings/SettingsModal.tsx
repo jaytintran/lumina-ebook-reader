@@ -90,6 +90,12 @@ export function SettingsModal() {
     if ("storage" in navigator && "estimate" in navigator.storage) {
       setLoadingStorage(true);
       try {
+        if ("persist" in navigator.storage) {
+          const isPersist = await navigator.storage.persisted();
+          if (!isPersist) {
+            await navigator.storage.persist();
+          }
+        }
         const estimate = await navigator.storage.estimate();
         setStorageUsage(estimate.usage || 0);
         setStorageQuota(estimate.quota || 0);
@@ -249,11 +255,13 @@ export function SettingsModal() {
               {/* Storage Usage Bar & Stats */}
               <div className="flex flex-col gap-2 rounded-lg bg-background/60 p-3 border border-border/60">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-foreground">
+                  <span className="font-semibold text-foreground">
                     {formatBytes(storageUsage)} used
                   </span>
                   <span className="text-muted-foreground text-[11px]">
-                    {formatBytes(availableBytes)} available of {formatBytes(storageQuota)}
+                    {storageQuota > 2.5 * 1024 * 1024 * 1024
+                      ? `${formatBytes(availableBytes)} available of ${formatBytes(storageQuota)}`
+                      : `Initial pool: ${formatBytes(storageQuota)} (Auto-expandable)`}
                   </span>
                 </div>
 
@@ -267,12 +275,12 @@ export function SettingsModal() {
                         ? "bg-yellow-500"
                         : "bg-primary"
                     )}
-                    style={{ width: `${Math.max(1, Math.min(100, usagePercent))}%` }}
+                    style={{ width: `${Math.max(2, Math.min(100, usagePercent))}%` }}
                   />
                 </div>
 
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Includes {books.length} imported book{books.length === 1 ? "" : "s"}, cached pages, notes, highlights, and OPFS storage files.
+                  Stores {books.length} book{books.length === 1 ? "" : "s"}, cached pages, notes, highlights, and OPFS files. Storage dynamically grows on your disk as more books are imported.
                 </p>
               </div>
 
