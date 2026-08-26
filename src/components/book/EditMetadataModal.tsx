@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Star } from "lucide-react";
+import { Check, ChevronDown, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
 import { saveFile } from "@/db/opfs";
@@ -12,6 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -200,18 +209,57 @@ export function EditMetadataModal({
             </Field>
             <div className="grid grid-cols-2 items-end gap-3">
               <Field label="Reading status">
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as ReadingStatus | "")}
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">— None —</option>
-                  {STATUSES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        type="button"
+                        className="h-9 w-full justify-between rounded-md border-input bg-background px-3 text-sm font-normal text-foreground shadow-2xs hover:bg-accent"
+                      />
+                    }
+                  >
+                    <span
+                      className={
+                        status ? "text-foreground" : "text-muted-foreground"
+                      }
+                    >
+                      {STATUSES.find((s) => s.value === status)?.label ??
+                        "— None —"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground opacity-60" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-(--anchor-width) min-w-44 p-1"
+                  >
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Reading Status
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setStatus("")}
+                        className="cursor-pointer gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground"
+                      >
+                        <span className="flex-1">— None —</span>
+                        {!status && <Check className="h-3.5 w-3.5 text-primary" />}
+                      </DropdownMenuItem>
+                      {STATUSES.map((s) => (
+                        <DropdownMenuItem
+                          key={s.value}
+                          onClick={() => setStatus(s.value)}
+                          className="cursor-pointer gap-2 rounded-md px-2.5 py-1.5 text-xs"
+                        >
+                          <span className="flex-1">{s.label}</span>
+                          {status === s.value && (
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </Field>
               <label className="flex items-center gap-2 pb-2.5 text-sm">
                 <input

@@ -430,6 +430,8 @@ export function useAddNote() {
   return useMutation({
     mutationFn: (data: {
       bookId: number;
+      title?: string;
+      icon?: string;
       content: string;
       pageOrLocation?: number | string;
     }) =>
@@ -447,14 +449,20 @@ export function useUpdateNote() {
   return useMutation({
     mutationFn: ({
       id,
-      content,
+      bookId: _bookId,
+      patch,
     }: {
       id: number;
       bookId: number;
-      content: string;
+      patch: {
+        title?: string;
+        icon?: string;
+        content?: string;
+        pageOrLocation?: number | string;
+      };
     }) =>
       db.notes.update(id, {
-        content,
+        ...patch,
         updatedAt: Date.now(),
       }),
     onSuccess: (_res, { bookId }) => invalidate([keys.notes(bookId)]),
