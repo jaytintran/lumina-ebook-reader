@@ -32,3 +32,15 @@ export async function readObjectUrl(key: string): Promise<string | null> {
   const file = await readFile(key);
   return file ? URL.createObjectURL(file) : null;
 }
+
+/** Clear all stored files in OPFS. */
+export async function clearAllFiles(): Promise<void> {
+  try {
+    const dir = await root;
+    for await (const [name] of (dir as any).entries()) {
+      await dir.removeEntry(name, { recursive: true });
+    }
+  } catch {
+    // ignore
+  }
+}
