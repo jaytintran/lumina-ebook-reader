@@ -193,14 +193,24 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
     const fileData = files[item.href];
     if (fileData) {
       let html = decoder.decode(fileData);
-      
+
+      // Embed inline images (img src and svg image href / xlink:href)
       html = html.replace(/<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi, (imgTag, src) => {
         try {
           const resolvedImgPath = resolveRelative(item.href, src);
-          const imgBytes = files[resolvedImgPath];
+          const imgBytes = files[resolvedImgPath] || files[decodeURIComponent(resolvedImgPath)] || files[src];
           if (imgBytes) {
             const ext = resolvedImgPath.split(".").pop()?.toLowerCase() || "jpeg";
-            const mime = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "svg" ? "image/svg+xml" : "image/jpeg";
+            const mime =
+              ext === "png"
+                ? "image/png"
+                : ext === "gif"
+                ? "image/gif"
+                : ext === "svg"
+                ? "image/svg+xml"
+                : ext === "webp"
+                ? "image/webp"
+                : "image/jpeg";
             const base64 = uint8ToBase64(imgBytes);
             return imgTag.replace(src, `data:${mime};base64,${base64}`);
           }
@@ -210,6 +220,38 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
         return imgTag;
       });
 
+      html = html.replace(/<image\s+[^>]*(?:xlink:href|href)=["']([^"']+)["'][^>]*>/gi, (imgTag, src) => {
+        try {
+          const resolvedImgPath = resolveRelative(item.href, src);
+          const imgBytes = files[resolvedImgPath] || files[decodeURIComponent(resolvedImgPath)] || files[src];
+          if (imgBytes) {
+            const ext = resolvedImgPath.split(".").pop()?.toLowerCase() || "jpeg";
+            const mime =
+              ext === "png"
+                ? "image/png"
+                : ext === "gif"
+                ? "image/gif"
+                : ext === "svg"
+                ? "image/svg+xml"
+                : ext === "webp"
+                ? "image/webp"
+                : "image/jpeg";
+            const base64 = uint8ToBase64(imgBytes);
+            return imgTag.replace(src, `data:${mime};base64,${base64}`);
+          }
+        } catch {
+          // ignore
+        }
+        return imgTag;
+      });
+
+      // Extract body innerHTML if present to prevent <html> / <head> / style leaks
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      if (bodyMatch && bodyMatch[1]) {
+        html = bodyMatch[1];
+      }
+
+      // Strip scripts and dangerous elements
       html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
 
       sections.push({
@@ -258,11 +300,13 @@ export function parseFullEpub(buffer: ArrayBuffer): ParsedEpubContent {
             const resolvedPath = filePath ? resolveRelative(navHref, filePath) : "";
             const finalHref = resolvedPath ? (hash ? `${resolvedPath}#${hash}` : resolvedPath) : hrefAttr;
             const label = a.textContent?.trim() || `Chapter ${idx + 1}`;
-            toc.push({
-              id: `nav-${idx}`,
-              label,
-              href: finalHref,
-            });
+            if (label && finalHref) {
+              toc.push({
+                id: `nav-${idx}`,
+                label,
+                href: finalHref,
+              });
+            }
           });
         }
       }
@@ -303,36 +347,119 @@ function tag(doc: Document, tagName: string): string {
 }
 
 function extractEpubCover(
-  doc: Document,
+  doc: Document | null,
   files: Record<string, Uint8Array>,
   opfPath: string
 ): Blob | null {
   try {
-    const metaCover = doc.querySelector('meta[name="cover"]')?.getAttribute("content");
+    const opfDir = opfPath.replace(/[^/]*$/, "");
     let coverHref: string | null = null;
 
-    if (metaCover) {
-      const item = doc.getElementById(metaCover) || doc.querySelector(`item[id="${metaCover}"]`);
-      coverHref = item?.getAttribute("href") ?? null;
+    if (doc) {
+      // 1. EPUB 2 <meta name="cover" content="item-id">
+      const metaTags = Array.from(doc.getElementsByTagName("meta"));
+      for (const meta of metaTags) {
+        if (meta.getAttribute("name")?.toLowerCase() === "cover") {
+          const coverId = meta.getAttribute("content");
+          if (coverId) {
+            const item = Array.from(doc.getElementsByTagName("item")).find(
+              (it) => it.getAttribute("id") === coverId
+            );
+            if (item) {
+              coverHref = item.getAttribute("href");
+              break;
+            }
+          }
+        }
+      }
+
+      // 2. EPUB 3 <item properties="cover-image">
+      if (!coverHref) {
+        const items = Array.from(doc.getElementsByTagName("item"));
+        for (const item of items) {
+          const props = (item.getAttribute("properties") || "").toLowerCase();
+          if (props.includes("cover-image")) {
+            coverHref = item.getAttribute("href");
+            break;
+          }
+        }
+      }
+
+      // 3. Item id heuristic (cover, cover-image, book-cover, id-cover, titlepage)
+      if (!coverHref) {
+        const items = Array.from(doc.getElementsByTagName("item"));
+        for (const item of items) {
+          const id = (item.getAttribute("id") || "").toLowerCase();
+          const mediaType = (item.getAttribute("media-type") || "").toLowerCase();
+          if (
+            mediaType.startsWith("image/") &&
+            (id === "cover" ||
+              id === "cover-image" ||
+              id === "coverimage" ||
+              id.includes("cover") ||
+              id.includes("titlepage"))
+          ) {
+            coverHref = item.getAttribute("href");
+            break;
+          }
+        }
+      }
+
+      // 4. Item href heuristic (contains cover or titlepage)
+      if (!coverHref) {
+        const items = Array.from(doc.getElementsByTagName("item"));
+        for (const item of items) {
+          const href = (item.getAttribute("href") || "").toLowerCase();
+          const mediaType = (item.getAttribute("media-type") || "").toLowerCase();
+          if (mediaType.startsWith("image/") && (href.includes("cover") || href.includes("titlepage"))) {
+            coverHref = item.getAttribute("href");
+            break;
+          }
+        }
+      }
     }
 
-    if (!coverHref) {
-      const item = doc.querySelector('item[properties~="cover-image"]') ||
-                   doc.querySelector('item[media-type^="image/"][id*="cover"]');
-      coverHref = item?.getAttribute("href") ?? null;
+    let coverBytes: Uint8Array | undefined;
+    let resolvedPath = "";
+
+    if (coverHref) {
+      resolvedPath = resolveRelative(opfDir ? `${opfDir}dummy` : "", coverHref);
+      coverBytes =
+        files[resolvedPath] ||
+        files[coverHref] ||
+        files[decodeURIComponent(resolvedPath)] ||
+        files[decodeURIComponent(coverHref)];
     }
 
-    if (!coverHref) return null;
+    // 5. Fallback: Directly search files map for cover image files
+    if (!coverBytes || coverBytes.length === 0) {
+      const fileKeys = Object.keys(files);
+      const matchedKey =
+        fileKeys.find((k) => /(^|\/)(cover|titlepage|frontcover)\.(jpe?g|png|webp|gif)$/i.test(k)) ||
+        fileKeys.find((k) => /cover.*\.(jpe?g|png|webp)$/i.test(k)) ||
+        fileKeys.find((k) => /\.(jpe?g|png|webp)$/i.test(k) && !k.includes("ad"));
 
-    const opfDir = opfPath.replace(/[^/]*$/, "");
-    const resolvedPath = resolveRelative(opfDir ? `${opfDir}dummy` : "", coverHref);
-    const coverBytes = files[resolvedPath] || files[coverHref];
+      if (matchedKey) {
+        coverBytes = files[matchedKey];
+        resolvedPath = matchedKey;
+      }
+    }
 
-    if (!coverBytes) return null;
+    if (!coverBytes || coverBytes.length === 0) return null;
 
-    const ext = resolvedPath.split(".").pop()?.toLowerCase() || "jpeg";
-    const mime = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" : "image/jpeg";
-    return new Blob([coverBytes.buffer as ArrayBuffer], { type: mime });
+    const ext = (resolvedPath.split(".").pop() || "jpeg").toLowerCase();
+    const mime =
+      ext === "png"
+        ? "image/png"
+        : ext === "gif"
+        ? "image/gif"
+        : ext === "webp"
+        ? "image/webp"
+        : ext === "svg"
+        ? "image/svg+xml"
+        : "image/jpeg";
+
+    return new Blob([coverBytes as unknown as BlobPart], { type: mime });
   } catch {
     return null;
   }

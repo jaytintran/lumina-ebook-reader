@@ -527,6 +527,14 @@ export function ReaderPage() {
                 epubDoc={epubDoc}
                 epubFontSize={epubFontSize}
                 highlights={highlights}
+                onVisibleSection={(secIdx) => {
+                  setEpubSectionIdx(secIdx);
+                  saveProgress.mutate({
+                    bookId,
+                    pageOrLocation: secIdx,
+                    percentage: Math.round(((secIdx + 1) / epubDoc.sections.length) * 100),
+                  });
+                }}
               />
             )
           )}
