@@ -1,3 +1,5 @@
+<img width="1919" height="991" alt="image" src="https://github.com/user-attachments/assets/8b145ef0-07f4-4dd4-ba4d-3b9253727473" />
+
 # Lumina Ebook Reader & Bookshelf
 
 A personal, local-first ebook library and reading application — organize, browse, annotate, and read your PDF and EPUB collections with a clean dark theme, responsive grid/row views, full drag-and-drop organization, and a 3-column in-app reader.
