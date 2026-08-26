@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Heart, Star } from "lucide-react";
+import { Check, FileText, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
 import { useSettings, useUpdateBook } from "@/db/hooks";
@@ -8,6 +8,11 @@ import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 import { BookContextMenu } from "./BookContextMenu";
 import { EditMetadataModal } from "./EditMetadataModal";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function BookCard({
   book,
@@ -233,9 +238,28 @@ export function BookCard({
                 </div>
               )}
               {(settings?.showDescription ?? true) && book.description && (
-                <p className="line-clamp-2 text-[11px] text-muted-foreground pt-0.5">
-                  {book.description}
-                </p>
+                <div className="pt-0.5">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setModalMode("view");
+                          }}
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-medium text-primary border border-primary/20 hover:bg-primary/20 transition-colors cursor-pointer"
+                        >
+                          <FileText className="h-3 w-3" />
+                          <span>Description</span>
+                        </button>
+                      }
+                    />
+                    <TooltipContent className="max-w-xs text-xs line-clamp-4 leading-relaxed">
+                      {book.description.slice(0, 250)}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               )}
             </div>
           </div>

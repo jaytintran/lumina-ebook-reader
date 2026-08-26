@@ -8,6 +8,7 @@ import {
   Pencil,
   Star,
   Upload,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
@@ -303,10 +304,9 @@ export function BookDetailsModal({
   );
   const [favorite, setFavorite] = useState(book.isFavorite);
 
-  // Inline synopsis edit states for Overview Mode
+  // Inline synopsis edit state for Overview Mode
   const [isEditingInlineDesc, setIsEditingInlineDesc] = useState(false);
   const [inlineDesc, setInlineDesc] = useState(book.description ?? "");
-  const [savedToast, setSavedToast] = useState(false);
 
   const coverUrl = useCover(coverKey);
 
@@ -374,8 +374,6 @@ export function BookDetailsModal({
       id: book.id!,
       patch: { description: trimmed || undefined },
     });
-    setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 2000);
   };
 
   const handleCancelInlineDesc = () => {
@@ -420,6 +418,7 @@ export function BookDetailsModal({
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent
+        showCloseButton={false}
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
@@ -430,6 +429,7 @@ export function BookDetailsModal({
           <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
         </div>
 
+        {/* Modal Header with Perfectly Aligned X Button */}
         <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/50 shrink-0">
           <div className="flex items-center gap-2">
             <DialogTitle className="text-lg font-bold">
@@ -442,7 +442,7 @@ export function BookDetailsModal({
             )}
           </div>
 
-          <div className="flex items-center gap-2 pr-6">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {mode === "view" ? (
               <>
                 <button
@@ -482,6 +482,17 @@ export function BookDetailsModal({
                 Back
               </Button>
             )}
+
+            {/* Exactly aligned Close button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
           </div>
         </DialogHeader>
 
@@ -643,35 +654,13 @@ export function BookDetailsModal({
                 )}
               </div>
 
-              {/* Description (Spacious Markdown View / Inline Edit) */}
+              {/* Description (Spacious Borderless Markdown View with Click-to-Edit) */}
               <div className="flex flex-col gap-2 pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                    Synopsis & Description
-                  </span>
-                  {!isEditingInlineDesc && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInlineDesc(description);
-                        setIsEditingInlineDesc(true);
-                      }}
-                      className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      <span>Edit Synopsis</span>
-                    </button>
-                  )}
-                  {savedToast && (
-                    <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-500 animate-in fade-in">
-                      <Check className="h-3 w-3 stroke-[3]" />
-                      <span>Saved</span>
-                    </span>
-                  )}
-                </div>
-
+                <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                  Synopsis & Description
+                </span>
                 {isEditingInlineDesc ? (
-                  <div className="flex flex-col gap-2 animate-in fade-in-50 duration-150">
+                  <div className="flex flex-col gap-1.5 animate-in fade-in-50 duration-150">
                     <AutoResizeTextarea
                       autoFocus
                       value={inlineDesc}
@@ -679,10 +668,10 @@ export function BookDetailsModal({
                       onKeyDown={handleInlineDescKeyDown}
                       onBlur={handleSaveInlineDesc}
                       placeholder="Write book synopsis, character lists, or notes in Markdown..."
-                      className="bg-card border-primary/50 ring-2 ring-primary/20 shadow-inner"
+                      className="bg-card/60"
                     />
                     <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-muted-foreground px-1">
-                      <span>Markdown supported (**bold**, *italic*, # headings, - lists, &gt; quotes)</span>
+                      <span>Markdown supported (**bold**, *italic*, # headings, - lists)</span>
                       <span className="font-medium text-foreground/70">
                         Click outside or <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+Enter</kbd> to save · <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Esc</kbd> to cancel
                       </span>
@@ -694,30 +683,20 @@ export function BookDetailsModal({
                       setInlineDesc(description);
                       setIsEditingInlineDesc(true);
                     }}
-                    title="Click to edit synopsis"
-                    className="group/desc relative rounded-xl border border-border/50 bg-muted/15 p-4 cursor-text transition-colors hover:border-primary/40 hover:bg-muted/25"
+                    className="pt-1 cursor-text select-text"
                   >
-                    <div className="absolute right-2.5 top-2.5 opacity-0 group-hover/desc:opacity-100 transition-opacity rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-2xs border border-border/50 flex items-center gap-1">
-                      <Pencil className="h-2.5 w-2.5 text-primary" />
-                      <span>Click to edit</span>
-                    </div>
                     <MarkdownText content={description} />
                   </div>
                 ) : (
-                  <div
+                  <p
                     onClick={() => {
                       setInlineDesc("");
                       setIsEditingInlineDesc(true);
                     }}
-                    className="group/empty rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground cursor-pointer transition-colors hover:border-primary hover:bg-primary/5"
+                    className="text-xs text-muted-foreground/80 italic pt-1 cursor-text hover:text-foreground transition-colors"
                   >
-                    <Pencil className="h-4 w-4 mx-auto mb-1.5 opacity-60 group-hover/empty:text-primary transition-colors" />
-                    <span>No description available. </span>
-                    <strong className="text-foreground group-hover/empty:text-primary transition-colors">
-                      Click here to add synopsis
-                    </strong>
-                    <span> in Markdown.</span>
-                  </div>
+                    No description available for this book. Click here to add one.
+                  </p>
                 )}
               </div>
             </div>
