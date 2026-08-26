@@ -27,8 +27,8 @@ export const db = new Dexie("BookshelfDB") as Dexie & {
   readingProgress: EntityTable<ReadingProgress, "id">;
 };
 
-db.version(2).stores({
-  books: "++id, title, author, publisher, readingStatus, isFavorite, dateAdded, order",
+db.version(3).stores({
+  books: "++id, title, author, publisher, readingStatus, isFavorite, dateAdded, order, fileHash",
   collections: "++id, order",
   folders: "++id, scopeType, scopeId, order",
   bookFolders: "++id, bookId, folderId, [bookId+folderId]",

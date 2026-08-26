@@ -1,34 +1,92 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Upload } from "lucide-react";
+import { AlertCircle, FileText, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { importBookFile } from "@/lib/importer";
+import { computeFileHash, findDuplicateBook, importBookFile } from "@/lib/importer";
 import { keys } from "@/db/hooks";
+import type { Book } from "@/db/schema";
+
+interface DuplicateConflict {
+  file: File;
+  existingBook: Book;
+}
 
 export function ImportButton() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingQueue, setPendingQueue] = useState<File[]>([]);
+  const [currentConflict, setCurrentConflict] = useState<DuplicateConflict | null>(null);
   const qc = useQueryClient();
+
+  const processNextInQueue = async (queue: File[]) => {
+    if (queue.length === 0) {
+      setBusy(false);
+      qc.invalidateQueries({ queryKey: keys.books });
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    const [file, ...rest] = queue;
+    setPendingQueue(rest);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const hash = await computeFileHash(buffer);
+      const duplicate = await findDuplicateBook(hash);
+
+      if (duplicate) {
+        setCurrentConflict({ file, existingBook: duplicate });
+      } else {
+        await importBookFile(file);
+        processNextInQueue(rest);
+      }
+    } catch (err) {
+      console.error("Import processing error:", err);
+      processNextInQueue(rest);
+    }
+  };
 
   const onFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     setBusy(true);
-    try {
-      for (const file of Array.from(files)) {
-        await importBookFile(file);
-      }
-      qc.invalidateQueries({ queryKey: keys.books });
-    } catch (err) {
-      console.error("Import failed", err);
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
+    const fileList = Array.from(files);
+    processNextInQueue(fileList);
+  };
+
+  const handleSkip = () => {
+    setCurrentConflict(null);
+    processNextInQueue(pendingQueue);
+  };
+
+  const handleReplace = async () => {
+    if (currentConflict) {
+      await importBookFile(currentConflict.file, {
+        replaceBookId: currentConflict.existingBook.id,
+      });
     }
+    setCurrentConflict(null);
+    processNextInQueue(pendingQueue);
+  };
+
+  const handleKeepBoth = async () => {
+    if (currentConflict) {
+      await importBookFile(currentConflict.file);
+    }
+    setCurrentConflict(null);
+    processNextInQueue(pendingQueue);
   };
 
   return (
@@ -60,6 +118,48 @@ export function ImportButton() {
         />
         <TooltipContent>{busy ? "Importing…" : "Import books"}</TooltipContent>
       </Tooltip>
+
+      {currentConflict && (
+        <Dialog open onOpenChange={(open) => !open && handleSkip()}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-yellow-400">
+                <AlertCircle className="h-5 w-5" />
+                Duplicate Book Detected
+              </DialogTitle>
+              <DialogDescription className="pt-2 text-sm leading-relaxed text-foreground">
+                This book already exists in your library as:
+                <div className="my-3 flex items-center gap-3 rounded-lg border border-border/80 bg-accent/30 p-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-primary/15 text-primary">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-sm text-foreground">
+                      "{currentConflict.existingBook.title}"
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      by {currentConflict.existingBook.author} · {currentConflict.existingBook.fileType.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+                What would you like to do with <span className="font-semibold text-foreground">"{currentConflict.file.name}"</span>?
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={handleSkip}>
+                Skip
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleKeepBoth}>
+                Keep Both
+              </Button>
+              <Button variant="default" size="sm" onClick={handleReplace}>
+                Replace Existing
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

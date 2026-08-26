@@ -14,6 +14,7 @@ export interface Book {
   isFavorite: boolean;
   fileType: "pdf" | "epub";
   fileKey: string; // OPFS key for the book file
+  fileHash?: string; // SHA-256 binary checksum
   coverKey?: string; // OPFS key for the generated cover image
   order: number; // global order — used by every view unless inside a folder
   dateAdded: number;

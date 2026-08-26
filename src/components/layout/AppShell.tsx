@@ -28,6 +28,7 @@ import {
   useCollections,
   useSaveCollections,
 } from "@/db/hooks";
+import { backfillMissingFileHashes } from "@/lib/importer";
 import { useUIStore } from "@/stores/uiStore";
 import { useCover } from "@/lib/useCover";
 import type { Book } from "@/db/schema";
@@ -287,6 +288,11 @@ export function AppShell() {
       settings?.theme !== "light",
     );
   }, [settings?.theme]);
+
+  // One-time legacy migration on initial mount
+  useEffect(() => {
+    backfillMissingFileHashes();
+  }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
     const id = event.active.id;

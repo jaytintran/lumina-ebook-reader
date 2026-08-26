@@ -2,15 +2,64 @@ import * as pdfjs from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { unzipSync } from "fflate";
 import { db } from "@/db/db";
-import { saveFile } from "@/db/opfs";
+import { readFile, saveFile } from "@/db/opfs";
 import type { Book } from "@/db/schema";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const stripExt = (name: string) => name.replace(/\.[^.]+$/, "");
 
-/** Import one PDF/EPUB: save bytes to OPFS, parse metadata, render a cover, insert a Book row. */
-export async function importBookFile(file: File): Promise<Book> {
+/** Compute SHA-256 hash string for an ArrayBuffer using native hardware-accelerated Web Crypto API. */
+export async function computeFileHash(buffer: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  const array = Array.from(new Uint8Array(digest));
+  return array.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Check whether a book with the same binary SHA-256 hash exists in IndexedDB. */
+export async function findDuplicateBook(fileHash: string): Promise<Book | undefined> {
+  return await db.books.where("fileHash").equals(fileHash).first();
+}
+
+const HASH_MIGRATION_KEY = "lumina_hashes_backfilled_v1";
+
+/** Automatically compute and save SHA-256 hashes once for legacy books, then never run again. */
+export async function backfillMissingFileHashes(): Promise<void> {
+  // If already migrated, exit in 0.001ms without touching IndexedDB or OPFS
+  if (localStorage.getItem(HASH_MIGRATION_KEY)) return;
+
+  try {
+    const booksWithoutHash = await db.books.filter((b) => !b.fileHash).toArray();
+    if (booksWithoutHash.length > 0) {
+      for (const book of booksWithoutHash) {
+        try {
+          const file = await readFile(book.fileKey);
+          if (file) {
+            const buffer = await file.arrayBuffer();
+            const hash = await computeFileHash(buffer);
+            await db.books.update(book.id!, { fileHash: hash });
+          }
+        } catch (err) {
+          console.warn(`Could not backfill hash for book ${book.id}:`, err);
+        }
+      }
+    }
+    // Mark as completed so this never executes again
+    localStorage.setItem(HASH_MIGRATION_KEY, "true");
+  } catch {
+    // ignore
+  }
+}
+
+export interface ImportOptions {
+  replaceBookId?: number; // If replacing an existing duplicate
+}
+
+/** Import one PDF/EPUB: save bytes to OPFS, compute SHA-256 hash, parse metadata, render a cover, insert/replace Book row. */
+export async function importBookFile(
+  file: File,
+  options?: ImportOptions
+): Promise<Book> {
   const fileType = /\.epub$/i.test(file.name)
     ? "epub"
     : /\.pdf$/i.test(file.name)
@@ -19,6 +68,7 @@ export async function importBookFile(file: File): Promise<Book> {
   if (!fileType) throw new Error(`Unsupported file: ${file.name}`);
 
   const buffer = await file.arrayBuffer();
+  const fileHash = await computeFileHash(buffer);
   const fileKey = `${crypto.randomUUID()}.${fileType}`;
 
   let title = stripExt(file.name);
@@ -55,6 +105,23 @@ export async function importBookFile(file: File): Promise<Book> {
     await saveFile(coverKey, cover);
   }
 
+  if (options?.replaceBookId) {
+    const existing = await db.books.get(options.replaceBookId);
+    if (existing) {
+      const updated: Book = {
+        ...existing,
+        title: existing.title || title,
+        author: existing.author || author,
+        fileType,
+        fileKey,
+        fileHash,
+        coverKey: coverKey ?? existing.coverKey,
+      };
+      await db.books.put(updated);
+      return updated;
+    }
+  }
+
   const max = await db.books.orderBy("order").last();
   const book: Book = {
     title,
@@ -66,12 +133,13 @@ export async function importBookFile(file: File): Promise<Book> {
     isFavorite: false,
     fileType,
     fileKey,
+    fileHash,
     coverKey,
     order: max ? max.order + 1 : 0,
     dateAdded: Date.now(),
   };
-  await db.books.add(book);
-  return book;
+  const id = await db.books.add(book);
+  return { ...book, id: id as number };
 }
 
 function str(v: unknown): string {
