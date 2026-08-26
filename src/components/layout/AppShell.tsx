@@ -14,6 +14,8 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { MobileNav } from "./MobileNav";
+import { MobileSidebarDrawer } from "./MobileSidebarDrawer";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { BulkActionBar } from "@/components/book/BulkActionBar";
 import {
@@ -150,7 +152,7 @@ function DraggedBookOverlay({ book }: { book: Book }) {
                       key={i}
                       className={cn(
                         "h-3 w-3",
-                        i < book.rating
+                        i < (book.rating ?? 0)
                           ? "fill-yellow-400 text-yellow-400"
                           : "text-muted-foreground/40",
                       )}
@@ -213,73 +215,38 @@ function DraggedBookOverlay({ book }: { book: Book }) {
             )}
 
             {/* Status and Favorite Badges */}
-            <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
+            <div className="absolute left-1 top-1 z-10 flex flex-col items-start gap-1">
               {book.isFavorite && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
-                  <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
+                  <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
                 </span>
               )}
               {book.readingStatus === "finished" && (
-                <span className="rounded-full bg-green-950/80 px-2 py-0.5 text-[9px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
+                <span className="rounded-full bg-green-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
                   Finished
                 </span>
               )}
               {book.readingStatus === "currently-reading" && (
-                <span className="rounded-full bg-blue-950/80 px-2 py-0.5 text-[9px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
+                <span className="rounded-full bg-blue-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
                   Reading
                 </span>
               )}
               {book.readingStatus === "wanna-read" && (
-                <span className="rounded-full bg-yellow-950/80 px-2 py-0.5 text-[9px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
+                <span className="rounded-full bg-yellow-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
                   Wanna Read
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="flex flex-col gap-0.5">
-              <h3 className="truncate text-sm font-semibold leading-snug">
-                {book.title}
-              </h3>
-              {(settings?.showSubtitle ?? true) && book.subtitle && (
-                <p className="truncate text-[11px] italic font-normal text-muted-foreground/80 leading-tight">
-                  {book.subtitle}
-                </p>
-              )}
-            </div>
+          <div className="flex flex-col gap-0.5">
+            <h3 className="truncate text-sm font-semibold leading-snug">
+              {book.title}
+            </h3>
             {(settings?.showAuthor ?? true) && (
               <p className="truncate text-xs font-medium text-foreground/80">
                 {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
               </p>
-            )}
-            {(settings?.showRating ?? true) && (
-              <div className="flex items-center gap-0.5 pt-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={cn(
-                      "h-3 w-3",
-                      i < book.rating
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-muted-foreground/40",
-                    )}
-                  />
-                ))}
-              </div>
-            )}
-            {(settings?.showProgress ?? true) && (
-              <div className="flex items-center gap-2 pt-0.5">
-                <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${book.progress ?? 0}%` }}
-                  />
-                </div>
-                <span className="text-[10px] font-semibold text-primary">
-                  {book.progress ?? 0}%
-                </span>
-              </div>
             )}
           </div>
         </div>
@@ -439,13 +406,15 @@ export function AppShell() {
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header />
-          <div className="px-6 pt-4">
+          <div className="px-4 md:px-6 pt-2 md:pt-4">
             <BulkActionBar />
           </div>
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6">
             <Outlet />
           </main>
         </div>
+        <MobileNav />
+        <MobileSidebarDrawer />
         <SettingsModal />
         <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
           {activeBook ? <DraggedBookOverlay book={activeBook} /> : null}

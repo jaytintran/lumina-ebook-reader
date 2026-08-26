@@ -37,7 +37,7 @@ export function ReaderSidebarLeft({
   onBookmarkClick,
 }: ReaderSidebarLeftProps) {
   return (
-    <aside className="w-72 shrink-0 border-r border-border bg-card flex flex-col z-10 animate-in slide-in-from-left duration-200">
+    <aside className="fixed inset-y-0 left-0 z-30 w-80 max-w-[85vw] md:static md:w-72 shrink-0 border-r border-border bg-card shadow-2xl md:shadow-none flex flex-col animate-in slide-in-from-left duration-200">
       {/* Left Tabs */}
       <div className="flex h-10 border-b border-border bg-background/50 items-stretch">
         <button

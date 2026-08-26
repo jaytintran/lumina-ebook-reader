@@ -10,6 +10,8 @@ export const useUIStore = create<{
   clearSelection: () => void;
   isEditingMetadata: boolean;
   setIsEditingMetadata: (editing: boolean) => void;
+  mobileDrawerOpen: boolean;
+  setMobileDrawerOpen: (open: boolean) => void;
 }>((set) => ({
   settingsOpen: false,
   setSettingsOpen: (open) => set({ settingsOpen: open }),
@@ -25,4 +27,6 @@ export const useUIStore = create<{
   clearSelection: () => set({ selectedIds: [] }),
   isEditingMetadata: false,
   setIsEditingMetadata: (editing) => set({ isEditingMetadata: editing }),
+  mobileDrawerOpen: false,
+  setMobileDrawerOpen: (open) => set({ mobileDrawerOpen: open }),
 }));

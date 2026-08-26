@@ -16,14 +16,14 @@ export function Header() {
   const setSearchQuery = useUIStore((s) => s.setSearchQuery);
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-background px-6">
-      <div className="relative max-w-md flex-1">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 md:px-6">
+      <div className="relative flex-1 max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by title, author, tag, publisher..."
-          className="pl-9 pr-8"
+          placeholder="Search library..."
+          className="pl-9 pr-8 h-9 text-xs sm:text-sm"
         />
         {searchQuery && (
           <button
@@ -35,7 +35,7 @@ export function Header() {
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <ImportButton />
         <Tooltip>
           {/* @ts-expect-error */}
@@ -43,6 +43,7 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
+              className="hidden sm:inline-flex"
               onClick={() => setSettingsOpen(true)}
             >
               <Settings className="h-4 w-4" />
@@ -51,7 +52,7 @@ export function Header() {
           <TooltipContent>Settings</TooltipContent>
         </Tooltip>
 
-        <Avatar className="h-8 w-8">
+        <Avatar className="h-8 w-8 hidden sm:flex">
           <AvatarFallback>T</AvatarFallback>
         </Avatar>
       </div>

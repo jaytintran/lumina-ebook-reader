@@ -119,7 +119,7 @@ export function ReaderSidebarRight({
 
   return (
     <>
-      <aside className="w-80 shrink-0 border-l border-border bg-card flex flex-col z-10 animate-in slide-in-from-right duration-200">
+      <aside className="fixed inset-y-0 right-0 z-30 w-80 max-w-[85vw] md:static md:w-80 shrink-0 border-l border-border bg-card shadow-2xl md:shadow-none flex flex-col animate-in slide-in-from-right duration-200">
         {/* Right Tabs */}
         <div className="flex h-10 border-b border-border bg-background/50 items-stretch">
           <button

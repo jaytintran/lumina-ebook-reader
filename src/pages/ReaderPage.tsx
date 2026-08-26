@@ -44,9 +44,9 @@ export function ReaderPage() {
   const { data: book, isLoading: bookLoading } = useBook(Number.isNaN(bookId) ? undefined : bookId);
   const updateBook = useUpdateBook();
 
-  // Panels state
-  const [leftPinned, setLeftPinned] = useState(true);
-  const [rightPinned, setRightPinned] = useState(true);
+  // Panels state (default open on desktop, closed on mobile)
+  const [leftPinned, setLeftPinned] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
+  const [rightPinned, setRightPinned] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
   const [leftTab, setLeftTab] = useState<LeftTab>("toc");
   const [rightTab, setRightTab] = useState<RightTab>("notes");
 

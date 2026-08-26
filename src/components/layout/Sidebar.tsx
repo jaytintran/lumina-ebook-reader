@@ -291,7 +291,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen min-w-64 max-w-sm w-max shrink-0 flex-col border-r border-border bg-background transition-all duration-200">
+    <aside className="hidden md:flex h-screen min-w-64 max-w-sm w-max shrink-0 flex-col border-r border-border bg-background transition-all duration-200">
       <div className="flex items-center gap-3 px-4 py-4.5 whitespace-nowrap border-b border-border/40">
         <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 via-indigo-500 to-purple-600 shadow-md shadow-indigo-500/20 shrink-0">
           <svg
