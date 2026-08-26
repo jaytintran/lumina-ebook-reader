@@ -66,52 +66,178 @@ const snapCenterToCursor: Modifier = ({
 
 function DraggedBookOverlay({ book }: { book: Book }) {
   const { data: settings } = useSettings();
+  const selectedIds = useUIStore((s) => s.selectedIds);
+  const isBulk = selectedIds.length > 1 && selectedIds.includes(book.id!);
+  const count = selectedIds.length;
   const coverUrl = useCover(book.coverKey);
   const isRow = settings?.viewMode === "row";
 
   if (isRow) {
     return (
-      <div className="w-[340px] rounded-lg border-2 border-primary/80 bg-card/85 p-3 shadow-2xl backdrop-blur-md opacity-85 rotate-1 pointer-events-none select-none">
-        <div className="flex gap-3.5">
-          <div className="relative shrink-0">
+      <div className="relative pointer-events-none select-none">
+        {isBulk && (
+          <>
+            <div className="absolute inset-0 translate-x-3 translate-y-3 rounded-lg border-2 border-primary/40 bg-card/60 rotate-2 shadow-lg" />
+            <div className="absolute inset-0 translate-x-1.5 translate-y-1.5 rounded-lg border-2 border-primary/60 bg-card/75 rotate-1 shadow-xl" />
+          </>
+        )}
+        <div className="relative w-[340px] rounded-lg border-2 border-primary/80 bg-card/90 p-3 shadow-2xl backdrop-blur-md opacity-90">
+          {isBulk && (
+            <div className="absolute -top-3 -right-3 z-30 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-lg ring-2 ring-background animate-in zoom-in-75">
+              <span>{count}</span>
+              <span className="text-[10px] font-medium opacity-90">books</span>
+            </div>
+          )}
+          <div className="flex gap-3.5">
+            <div className="relative shrink-0">
+              {coverUrl ? (
+                <img
+                  src={coverUrl}
+                  alt={book.title}
+                  className="h-28 w-20 shrink-0 rounded-sm object-cover shadow-sm"
+                />
+              ) : (
+                <div className="flex h-28 w-20 shrink-0 items-center justify-center rounded-sm bg-neutral-800 p-1 text-center text-[9px] font-bold text-white shadow-sm">
+                  {book.title.slice(0, 20)}
+                </div>
+              )}
+
+              {/* Status and Favorite Badges */}
+              <div className="absolute left-1 top-1 z-10 flex flex-col items-start gap-1">
+                {book.isFavorite && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
+                    <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
+                  </span>
+                )}
+                {book.readingStatus === "finished" && (
+                  <span className="rounded-full bg-green-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
+                    Finished
+                  </span>
+                )}
+                {book.readingStatus === "currently-reading" && (
+                  <span className="rounded-full bg-blue-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
+                    Reading
+                  </span>
+                )}
+                {book.readingStatus === "wanna-read" && (
+                  <span className="rounded-full bg-yellow-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
+                    Wanna Read
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <div className="flex flex-col gap-0.5">
+                <h3 className="truncate text-sm font-semibold leading-snug">
+                  {book.title}
+                </h3>
+                {(settings?.showSubtitle ?? true) && book.subtitle && (
+                  <p className="truncate text-[11px] italic font-normal text-muted-foreground/80 leading-tight">
+                    {book.subtitle}
+                  </p>
+                )}
+              </div>
+              {(settings?.showAuthor ?? true) && (
+                <p className="truncate text-xs font-medium text-foreground/80">
+                  {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
+                </p>
+              )}
+              {(settings?.showRating ?? true) && (
+                <div className="flex items-center gap-0.5 pt-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={cn(
+                        "h-3 w-3",
+                        i < book.rating
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-muted-foreground/40",
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
+              {(settings?.showProgress ?? true) && (
+                <div className="flex items-center gap-2 pt-0.5">
+                  <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${book.progress ?? 0}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-semibold text-primary">
+                    {book.progress ?? 0}%
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative pointer-events-none select-none">
+      {isBulk && (
+        <>
+          <div className="absolute inset-0 translate-x-3 translate-y-3 rounded-lg border-2 border-primary/40 bg-card/60 rotate-3 shadow-lg" />
+          <div className="absolute inset-0 translate-x-1.5 translate-y-1.5 rounded-lg border-2 border-primary/60 bg-card/75 rotate-1.5 shadow-xl" />
+        </>
+      )}
+      <div className="relative w-52 rounded-lg border-2 border-primary/80 bg-card/90 p-3 shadow-2xl backdrop-blur-md opacity-90">
+        {isBulk && (
+          <div className="absolute -top-3 -right-3 z-30 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-lg ring-2 ring-background animate-in zoom-in-75">
+            <span>{count}</span>
+            <span className="text-[10px] font-medium opacity-90">books</span>
+          </div>
+        )}
+        <div className="flex flex-col gap-2.5">
+          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-neutral-900 shadow-sm">
             {coverUrl ? (
               <img
                 src={coverUrl}
                 alt={book.title}
-                className="h-28 w-20 shrink-0 rounded-sm object-cover shadow-sm"
+                className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-28 w-20 shrink-0 items-center justify-center rounded-sm bg-neutral-800 p-1 text-center text-[9px] font-bold text-white shadow-sm">
-                {book.title.slice(0, 20)}
+              <div className="flex h-full w-full flex-col items-center justify-center p-3 text-center">
+                <span className="text-xs font-semibold line-clamp-3 text-white">
+                  {book.title}
+                </span>
+                <span className="mt-1 text-[10px] text-neutral-400">
+                  {book.fileType.toUpperCase()}
+                </span>
               </div>
             )}
 
             {/* Status and Favorite Badges */}
-            <div className="absolute left-1 top-1 z-10 flex flex-col items-start gap-1">
+            <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
               {book.isFavorite && (
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
-                  <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
+                  <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
                 </span>
               )}
               {book.readingStatus === "finished" && (
-                <span className="rounded-full bg-green-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
+                <span className="rounded-full bg-green-950/80 px-2 py-0.5 text-[9px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
                   Finished
                 </span>
               )}
               {book.readingStatus === "currently-reading" && (
-                <span className="rounded-full bg-blue-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
+                <span className="rounded-full bg-blue-950/80 px-2 py-0.5 text-[9px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
                   Reading
                 </span>
               )}
               {book.readingStatus === "wanna-read" && (
-                <span className="rounded-full bg-yellow-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
+                <span className="rounded-full bg-yellow-950/80 px-2 py-0.5 text-[9px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
                   Wanna Read
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <div className="flex flex-col gap-0.5">
               <h3 className="truncate text-sm font-semibold leading-snug">
                 {book.title}
@@ -156,101 +282,6 @@ function DraggedBookOverlay({ book }: { book: Book }) {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-52 rounded-lg border-2 border-primary/80 bg-card/80 p-3 shadow-2xl backdrop-blur-md opacity-85 rotate-2 pointer-events-none select-none">
-      <div className="flex flex-col gap-2.5">
-        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-neutral-900 shadow-sm">
-          {coverUrl ? (
-            <img
-              src={coverUrl}
-              alt={book.title}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center p-3 text-center">
-              <span className="text-xs font-semibold line-clamp-3 text-white">
-                {book.title}
-              </span>
-              <span className="mt-1 text-[10px] text-neutral-400">
-                {book.fileType.toUpperCase()}
-              </span>
-            </div>
-          )}
-
-          {/* Status and Favorite Badges */}
-          <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
-            {book.isFavorite && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
-                <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
-              </span>
-            )}
-            {book.readingStatus === "finished" && (
-              <span className="rounded-full bg-green-950/80 px-2 py-0.5 text-[9px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
-                Finished
-              </span>
-            )}
-            {book.readingStatus === "currently-reading" && (
-              <span className="rounded-full bg-blue-950/80 px-2 py-0.5 text-[9px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
-                Reading
-              </span>
-            )}
-            {book.readingStatus === "wanna-read" && (
-              <span className="rounded-full bg-yellow-950/80 px-2 py-0.5 text-[9px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
-                Wanna Read
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <div className="flex flex-col gap-0.5">
-            <h3 className="truncate text-sm font-semibold leading-snug">
-              {book.title}
-            </h3>
-            {(settings?.showSubtitle ?? true) && book.subtitle && (
-              <p className="truncate text-[11px] italic font-normal text-muted-foreground/80 leading-tight">
-                {book.subtitle}
-              </p>
-            )}
-          </div>
-          {(settings?.showAuthor ?? true) && (
-            <p className="truncate text-xs font-medium text-foreground/80">
-              {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
-            </p>
-          )}
-          {(settings?.showRating ?? true) && (
-            <div className="flex items-center gap-0.5 pt-0.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={cn(
-                    "h-3 w-3",
-                    i < book.rating
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "text-muted-foreground/40",
-                  )}
-                />
-              ))}
-            </div>
-          )}
-          {(settings?.showProgress ?? true) && (
-            <div className="flex items-center gap-2 pt-0.5">
-              <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full"
-                  style={{ width: `${book.progress ?? 0}%` }}
-                />
-              </div>
-              <span className="text-[10px] font-semibold text-primary">
-                {book.progress ?? 0}%
-              </span>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -341,24 +372,28 @@ export function AppShell() {
       targetBookIds.forEach((id) => {
         updateBook.mutate({ id, patch: { isFavorite: true } });
       });
+      if (selectedIds.length > 0) useUIStore.getState().clearSelection();
       return;
     }
     if (overIdStr === "sidebar-nav-reading") {
       targetBookIds.forEach((id) => {
         updateBook.mutate({ id, patch: { readingStatus: "currently-reading" } });
       });
+      if (selectedIds.length > 0) useUIStore.getState().clearSelection();
       return;
     }
     if (overIdStr === "sidebar-nav-wanna-read") {
       targetBookIds.forEach((id) => {
         updateBook.mutate({ id, patch: { readingStatus: "wanna-read" } });
       });
+      if (selectedIds.length > 0) useUIStore.getState().clearSelection();
       return;
     }
     if (overIdStr === "sidebar-nav-finished") {
       targetBookIds.forEach((id) => {
         updateBook.mutate({ id, patch: { readingStatus: "finished" } });
       });
+      if (selectedIds.length > 0) useUIStore.getState().clearSelection();
       return;
     }
 
@@ -367,6 +402,7 @@ export function AppShell() {
       const colId = Number(overIdStr.slice("sidebar-collection-".length));
       if (!Number.isNaN(colId)) {
         addToCollection.mutate({ bookIds: targetBookIds, collectionId: colId });
+        if (selectedIds.length > 0) useUIStore.getState().clearSelection();
       }
       return;
     }
@@ -376,6 +412,7 @@ export function AppShell() {
       const folderId = Number(overIdStr.slice("folder-".length));
       if (!Number.isNaN(folderId)) {
         addToFolder.mutate({ bookIds: targetBookIds, folderId });
+        if (selectedIds.length > 0) useUIStore.getState().clearSelection();
       }
       return;
     }
