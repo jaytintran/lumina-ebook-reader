@@ -46,20 +46,31 @@ export function HomePage({ viewLabel }: { viewLabel: string }) {
   const navigate = useNavigate();
   const { data: books = [] } = useBooks();
   const { data: settings } = useSettings();
-  const updateSettings = useUpdateSettings();
   const [sourceModalOpen, setSourceModalOpen] = useState(false);
-  const searchQuery = useUIStore((s) => s.searchQuery).trim().toLowerCase();
+  const [editingSource, setEditingSource] = useState<{
+    id: string;
+    title: string;
+    url: string;
+  } | null>(null);
+  const searchQuery = useUIStore((s) => s.searchQuery)
+    .trim()
+    .toLowerCase();
 
   const filter = VIEW_FILTERS[viewLabel] ?? (() => true);
   const filteredCategoryBooks = books.filter(filter);
   const viewBooks = searchQuery
     ? filteredCategoryBooks.filter((b) => {
         const titleMatch = b.title.toLowerCase().includes(searchQuery);
-        const subtitleMatch = b.subtitle?.toLowerCase().includes(searchQuery) ?? false;
+        const subtitleMatch =
+          b.subtitle?.toLowerCase().includes(searchQuery) ?? false;
         const authorMatch = b.author.toLowerCase().includes(searchQuery);
-        const publisherMatch = b.publisher?.toLowerCase().includes(searchQuery) ?? false;
-        const tagMatch = b.tags.some((t) => t.toLowerCase().includes(searchQuery));
-        const descMatch = b.description?.toLowerCase().includes(searchQuery) ?? false;
+        const publisherMatch =
+          b.publisher?.toLowerCase().includes(searchQuery) ?? false;
+        const tagMatch = b.tags.some((t) =>
+          t.toLowerCase().includes(searchQuery),
+        );
+        const descMatch =
+          b.description?.toLowerCase().includes(searchQuery) ?? false;
         return (
           titleMatch ||
           subtitleMatch ||
@@ -75,6 +86,7 @@ export function HomePage({ viewLabel }: { viewLabel: string }) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* STATS CARDS */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <StatCard
           icon={Library}
@@ -131,7 +143,10 @@ export function HomePage({ viewLabel }: { viewLabel: string }) {
               variant="outline"
               size="sm"
               className="h-8 gap-1.5 text-xs font-medium"
-              onClick={() => setSourceModalOpen(true)}
+              onClick={() => {
+                setEditingSource(null);
+                setSourceModalOpen(true);
+              }}
             >
               <Plus className="h-3.5 w-3.5" /> Add Source
             </Button>
@@ -141,7 +156,13 @@ export function HomePage({ viewLabel }: { viewLabel: string }) {
               {settings.sources.map((s) => (
                 <div
                   key={s.id}
-                  className="group relative flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm font-medium transition-all hover:border-primary/50 hover:bg-accent/40 shadow-xs"
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setEditingSource(s);
+                    setSourceModalOpen(true);
+                  }}
+                  className="group relative flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm font-medium transition-all hover:border-primary/50 hover:bg-accent/40 shadow-xs cursor-pointer select-none"
+                  title="Right-click to edit or delete"
                 >
                   <a
                     href={s.url}
@@ -152,22 +173,13 @@ export function HomePage({ viewLabel }: { viewLabel: string }) {
                     <span>{s.title}</span>
                     <ExternalLink className="h-3 w-3 opacity-60 group-hover:opacity-100" />
                   </a>
-                  <button
-                    onClick={() => {
-                      updateSettings.mutate({
-                        sources: settings.sources.filter((x) => x.id !== s.id),
-                      });
-                    }}
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity ml-1"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              No sources yet — click "Add Source" to bookmark your favorite ebook websites.
+              No sources yet — click "Add Source" to bookmark your favorite
+              ebook websites.
             </p>
           )}
         </div>
@@ -186,34 +198,62 @@ export function HomePage({ viewLabel }: { viewLabel: string }) {
       />
 
       {sourceModalOpen && (
-        <AddSourceModal onClose={() => setSourceModalOpen(false)} />
+        <SourceModal
+          source={editingSource}
+          onClose={() => {
+            setSourceModalOpen(false);
+            setEditingSource(null);
+          }}
+        />
       )}
     </div>
   );
 }
 
-function AddSourceModal({ onClose }: { onClose: () => void }) {
+function SourceModal({
+  source,
+  onClose,
+}: {
+  source?: { id: string; title: string; url: string } | null;
+  onClose: () => void;
+}) {
   const { data: settings } = useSettings();
   const updateSettings = useUpdateSettings();
-  const [title, setTitle] = useState("");
-  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState(source?.title ?? "");
+  const [url, setUrl] = useState(source?.url ?? "");
 
-  const handleAdd = () => {
+  const handleSave = () => {
     if (!title.trim() || !url.trim() || !settings) return;
     let cleanUrl = url.trim();
     if (!/^https?:\/\//i.test(cleanUrl)) {
       cleanUrl = `https://${cleanUrl}`;
     }
 
+    if (source) {
+      updateSettings.mutate({
+        sources: settings.sources.map((s) =>
+          s.id === source.id ? { ...s, title: title.trim(), url: cleanUrl } : s,
+        ),
+      });
+    } else {
+      updateSettings.mutate({
+        sources: [
+          ...settings.sources,
+          {
+            id: crypto.randomUUID(),
+            title: title.trim(),
+            url: cleanUrl,
+          },
+        ],
+      });
+    }
+    onClose();
+  };
+
+  const handleDelete = () => {
+    if (!source || !settings) return;
     updateSettings.mutate({
-      sources: [
-        ...settings.sources,
-        {
-          id: crypto.randomUUID(),
-          title: title.trim(),
-          url: cleanUrl,
-        },
-      ],
+      sources: settings.sources.filter((s) => s.id !== source.id),
     });
     onClose();
   };
@@ -224,7 +264,7 @@ function AddSourceModal({ onClose }: { onClose: () => void }) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary" />
-            Add Download Source
+            {source ? "Edit Download Source" : "Add Download Source"}
           </DialogTitle>
         </DialogHeader>
 
@@ -247,20 +287,38 @@ function AddSourceModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://standardebooks.org"
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleAdd();
+                if (e.key === "Enter") handleSave();
               }}
               className="text-sm text-foreground"
             />
           </label>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleAdd} disabled={!title.trim() || !url.trim()}>
-            Add Source
-          </Button>
+        <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+          {source ? (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              className="gap-1.5"
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          ) : (
+            <div />
+          )}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={!title.trim() || !url.trim()}
+            >
+              {source ? "Save Changes" : "Add Source"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

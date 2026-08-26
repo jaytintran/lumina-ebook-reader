@@ -125,19 +125,12 @@ export function LibrarySections({
   return (
     <div className="flex flex-col gap-8">
       <FolderPillStrip scopeType={scopeType} scopeId={scopeId} />
-      {folders.map((f) => (
-        <FolderSection
-          key={f.id}
-          folder={f}
-          books={grouped.get(f.id!) ?? []}
-          scopeType={scopeType}
-          scopeId={scopeId}
-        />
-      ))}
+
+      {/* FLAT LIST BOOKS */}
       {ungrouped.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">
-            {folders.length ? "Other Books" : title || "All Books"}
+            {folders.length ? "All Books" : title || "All Books"}
           </h2>
           <BookGrid
             books={ungrouped}
@@ -150,6 +143,17 @@ export function LibrarySections({
       {baseBooks.length === 0 && (
         <p className="text-sm text-muted-foreground">{emptyText}</p>
       )}
+
+      {/* FOLDER SECTIONS */}
+      {folders.map((f) => (
+        <FolderSection
+          key={f.id}
+          folder={f}
+          books={grouped.get(f.id!) ?? []}
+          scopeType={scopeType}
+          scopeId={scopeId}
+        />
+      ))}
     </div>
   );
 }

@@ -53,7 +53,6 @@ import {
   Wrench,
   Zap,
   Plus,
-  Settings2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -69,20 +68,58 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const FOLDER_ICONS: { key: string; Icon: LucideIcon }[] = [
-  ["book-open", BookOpen], ["heart", Heart], ["star", Star], ["flame", Flame],
-  ["sparkles", Sparkles], ["music", Music], ["film", Film], ["briefcase", Briefcase],
-  ["wrench", Wrench], ["coffee", Coffee], ["pen-line", PenLine], ["graduation-cap", GraduationCap],
-  ["code-2", Code2], ["palette", Palette], ["globe", Globe], ["brain", Brain],
-  ["mountain", Mountain], ["compass", Compass], ["puzzle", Puzzle], ["rocket", Rocket],
-  ["crown", Crown], ["gem", Gem], ["shield", Shield], ["zap", Zap],
-  ["sun", Sun], ["moon", Moon], ["cloud", Cloud], ["droplets", Droplets],
-  ["leaf", Leaf], ["tree-pine", TreePine], ["anchor", Anchor], ["ship", Ship],
-  ["car", Car], ["plane", Plane], ["home", Home], ["building-2", Building2],
-  ["utensils", Utensils], ["cake", Cake], ["wine", Wine], ["gamepad-2", Gamepad2],
-  ["dumbbell", Dumbbell], ["camera", Camera], ["headphones", Headphones], ["gift", Gift],
-  ["lock", Lock], ["key-round", KeyRound], ["map-pin", MapPin], ["calendar", Calendar],
-  ["clock", Clock], ["layers", Layers],
+  ["book-open", BookOpen],
+  ["heart", Heart],
+  ["star", Star],
+  ["flame", Flame],
+  ["sparkles", Sparkles],
+  ["music", Music],
+  ["film", Film],
+  ["briefcase", Briefcase],
+  ["wrench", Wrench],
+  ["coffee", Coffee],
+  ["pen-line", PenLine],
+  ["graduation-cap", GraduationCap],
+  ["code-2", Code2],
+  ["palette", Palette],
+  ["globe", Globe],
+  ["brain", Brain],
+  ["mountain", Mountain],
+  ["compass", Compass],
+  ["puzzle", Puzzle],
+  ["rocket", Rocket],
+  ["crown", Crown],
+  ["gem", Gem],
+  ["shield", Shield],
+  ["zap", Zap],
+  ["sun", Sun],
+  ["moon", Moon],
+  ["cloud", Cloud],
+  ["droplets", Droplets],
+  ["leaf", Leaf],
+  ["tree-pine", TreePine],
+  ["anchor", Anchor],
+  ["ship", Ship],
+  ["car", Car],
+  ["plane", Plane],
+  ["home", Home],
+  ["building-2", Building2],
+  ["utensils", Utensils],
+  ["cake", Cake],
+  ["wine", Wine],
+  ["gamepad-2", Gamepad2],
+  ["dumbbell", Dumbbell],
+  ["camera", Camera],
+  ["headphones", Headphones],
+  ["gift", Gift],
+  ["lock", Lock],
+  ["key-round", KeyRound],
+  ["map-pin", MapPin],
+  ["calendar", Calendar],
+  ["clock", Clock],
+  ["layers", Layers],
 ].map(([key, Icon]) => ({ key, Icon }) as { key: string; Icon: LucideIcon });
 
 export function FolderIcon({
@@ -108,8 +145,13 @@ function FolderPill({
   return (
     <div
       ref={setNodeRef}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onEdit();
+      }}
+      title="Right-click to edit or delete folder"
       className={cn(
-        "group flex items-center gap-1 rounded-full border border-border bg-card py-1 pl-2.5 pr-1 text-sm transition-colors",
+        "group flex items-center rounded-md border border-border bg-card py-1 px-3 text-sm transition-colors hover:bg-accent hover:text-foreground cursor-pointer select-none",
         isOver && "border-primary bg-primary/10",
       )}
     >
@@ -123,12 +165,6 @@ function FolderPill({
       >
         <FolderIcon name={folder.icon} className="h-4 w-4 text-primary" />
         {folder.name}
-      </button>
-      <button
-        onClick={onEdit}
-        className="rounded-full p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-      >
-        <Settings2 className="h-3.5 w-3.5" />
       </button>
     </div>
   );
@@ -151,7 +187,12 @@ export function FolderPillStrip({
     const trimmed = name.trim();
     if (!trimmed) return;
     await saveFolders.mutateAsync([
-      { name: trimmed, scopeType: scopeType as "view" | "collection", scopeId, order: folders.length },
+      {
+        name: trimmed,
+        scopeType: scopeType as "view" | "collection",
+        scopeId,
+        order: folders.length,
+      },
     ]);
     setName("");
     setAdding(false);
@@ -184,7 +225,10 @@ export function FolderPillStrip({
         </button>
       )}
       {editing && (
-        <FolderSettingsDialog folder={editing} onClose={() => setEditing(null)} />
+        <FolderSettingsDialog
+          folder={editing}
+          onClose={() => setEditing(null)}
+        />
       )}
     </div>
   );
@@ -248,7 +292,11 @@ function FolderSettingsDialog({
           <Button
             onClick={async () => {
               await saveFolders.mutateAsync([
-                { ...folder, name: name.trim() || folder.name, icon: icon || undefined },
+                {
+                  ...folder,
+                  name: name.trim() || folder.name,
+                  icon: icon || undefined,
+                },
               ]);
               onClose();
             }}

@@ -92,7 +92,7 @@ export function SettingsModal() {
 
   return (
     <Dialog open onOpenChange={setOpen}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -164,7 +164,9 @@ export function SettingsModal() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{s.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{s.url}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {s.url}
+                  </p>
                 </div>
                 <Button
                   variant="ghost"

@@ -94,20 +94,12 @@ export function PdfPageItem({
         textLayerRef.current.style.setProperty("--scale-factor", scale.toString());
         try {
           const textContent = await page.getTextContent();
-          if (typeof (pdfjs as any).TextLayer === "function") {
-            const textLayer = new (pdfjs as any).TextLayer({
-              textContentSource: textContent,
-              container: textLayerRef.current,
-              viewport,
-            });
-            await textLayer.render();
-          } else if (typeof (pdfjs as any).renderTextLayer === "function") {
-            await (pdfjs as any).renderTextLayer({
-              textContentSource: textContent,
-              container: textLayerRef.current,
-              viewport,
-            }).promise;
-          }
+          const textLayer = new pdfjs.TextLayer({
+            textContentSource: textContent,
+            container: textLayerRef.current,
+            viewport,
+          });
+          await textLayer.render();
 
           if (highlights.length > 0) {
             applyPdfHighlights(textLayerRef.current, highlights, onHighlightClick);

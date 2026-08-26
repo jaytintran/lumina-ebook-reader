@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import {
   BookOpen,
-  Calendar,
   Clock,
   ExternalLink,
   Smile,
@@ -9,7 +8,6 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { Note } from "@/db/schema";
 import { EmojiPicker } from "./EmojiPicker";
 import { NotionEditor } from "./NotionEditor";
@@ -50,7 +48,7 @@ export function NoteModal({
   }, [note, isOpen]);
 
   // Debounced auto-save on changes
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleContentChange = (newContent: string) => {
     setContent(newContent);
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
