@@ -91,6 +91,57 @@ function Field({
   );
 }
 
+function AutoResizeTextarea({
+  value,
+  onChange,
+  onKeyDown,
+  onBlur,
+  placeholder,
+  autoFocus,
+  className,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const adjustHeight = () => {
+    const el = ref.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${Math.max(el.scrollHeight, 120)}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustHeight();
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      autoFocus={autoFocus}
+      onChange={(e) => {
+        onChange(e.target.value);
+        adjustHeight();
+      }}
+      onKeyDown={onKeyDown}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      className={cn(
+        "w-full resize-none overflow-hidden rounded-xl border border-input bg-transparent px-3.5 py-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring font-sans leading-relaxed transition-all",
+        className,
+      )}
+    />
+  );
+}
+
 function FormattedInline({ text }: { text: string }) {
   const parts = [];
   let remaining = text;
@@ -252,6 +303,11 @@ export function BookDetailsModal({
   );
   const [favorite, setFavorite] = useState(book.isFavorite);
 
+  // Inline synopsis edit states for Overview Mode
+  const [isEditingInlineDesc, setIsEditingInlineDesc] = useState(false);
+  const [inlineDesc, setInlineDesc] = useState(book.description ?? "");
+  const [savedToast, setSavedToast] = useState(false);
+
   const coverUrl = useCover(coverKey);
 
   useEffect(() => {
@@ -270,6 +326,7 @@ export function BookDetailsModal({
     setProgress(book.progress ?? 0);
     setTags(book.tags.join(", "));
     setDescription(book.description ?? "");
+    setInlineDesc(book.description ?? "");
     setStatus(book.readingStatus ?? "");
     setFavorite(book.isFavorite);
   }, [book]);
@@ -307,6 +364,35 @@ export function BookDetailsModal({
   const handleOpenReader = () => {
     onClose();
     navigate(`/reader/${book.id}`);
+  };
+
+  const handleSaveInlineDesc = async () => {
+    const trimmed = inlineDesc.trim();
+    setDescription(trimmed);
+    setIsEditingInlineDesc(false);
+    await updateBook.mutateAsync({
+      id: book.id!,
+      patch: { description: trimmed || undefined },
+    });
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 2000);
+  };
+
+  const handleCancelInlineDesc = () => {
+    setInlineDesc(description);
+    setIsEditingInlineDesc(false);
+  };
+
+  const handleInlineDescKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      handleCancelInlineDesc();
+    } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSaveInlineDesc();
+    }
   };
 
   const save = async () => {
@@ -404,8 +490,8 @@ export function BookDetailsModal({
           /*                     MODE A: VIEW OVERVIEW                 */
           /* ========================================================= */
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 overflow-y-auto pr-1 py-1">
-            {/* Left Column: Cover, Read Button & Quick Progress */}
-            <div className="md:col-span-4 lg:col-span-4 flex flex-col gap-4">
+            {/* Left Column: Cover, Read Button & Quick Progress (Sticky on Desktop) */}
+            <div className="md:col-span-4 lg:col-span-4 flex flex-col gap-4 md:sticky md:top-0 md:self-start">
               <div className="relative aspect-[2/3] w-36 max-h-52 md:w-full md:max-h-none mx-auto md:mx-0 overflow-hidden rounded-xl bg-neutral-900 border border-border/70 shadow-md shrink-0">
                 {coverUrl ? (
                   <img
@@ -557,20 +643,80 @@ export function BookDetailsModal({
                 )}
               </div>
 
-              {/* Description (Spacious Markdown View) */}
+              {/* Description (Spacious Markdown View / Inline Edit) */}
               <div className="flex flex-col gap-2 pt-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                  Synopsis & Description
-                </span>
-                {book.description ? (
-                  <div className="rounded-xl border border-border/50 bg-muted/15 p-4">
-                    <MarkdownText content={book.description} />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                    Synopsis & Description
+                  </span>
+                  {!isEditingInlineDesc && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInlineDesc(description);
+                        setIsEditingInlineDesc(true);
+                      }}
+                      className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      <span>Edit Synopsis</span>
+                    </button>
+                  )}
+                  {savedToast && (
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-500 animate-in fade-in">
+                      <Check className="h-3 w-3 stroke-[3]" />
+                      <span>Saved</span>
+                    </span>
+                  )}
+                </div>
+
+                {isEditingInlineDesc ? (
+                  <div className="flex flex-col gap-2 animate-in fade-in-50 duration-150">
+                    <AutoResizeTextarea
+                      autoFocus
+                      value={inlineDesc}
+                      onChange={setInlineDesc}
+                      onKeyDown={handleInlineDescKeyDown}
+                      onBlur={handleSaveInlineDesc}
+                      placeholder="Write book synopsis, character lists, or notes in Markdown..."
+                      className="bg-card border-primary/50 ring-2 ring-primary/20 shadow-inner"
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-muted-foreground px-1">
+                      <span>Markdown supported (**bold**, *italic*, # headings, - lists, &gt; quotes)</span>
+                      <span className="font-medium text-foreground/70">
+                        Click outside or <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+Enter</kbd> to save · <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Esc</kbd> to cancel
+                      </span>
+                    </div>
+                  </div>
+                ) : description ? (
+                  <div
+                    onClick={() => {
+                      setInlineDesc(description);
+                      setIsEditingInlineDesc(true);
+                    }}
+                    title="Click to edit synopsis"
+                    className="group/desc relative rounded-xl border border-border/50 bg-muted/15 p-4 cursor-text transition-colors hover:border-primary/40 hover:bg-muted/25"
+                  >
+                    <div className="absolute right-2.5 top-2.5 opacity-0 group-hover/desc:opacity-100 transition-opacity rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-2xs border border-border/50 flex items-center gap-1">
+                      <Pencil className="h-2.5 w-2.5 text-primary" />
+                      <span>Click to edit</span>
+                    </div>
+                    <MarkdownText content={description} />
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
-                    No description available for this book. Click{" "}
-                    <strong className="text-foreground">Edit Metadata</strong>{" "}
-                    to write synopsis, notes, or chapter lists in Markdown.
+                  <div
+                    onClick={() => {
+                      setInlineDesc("");
+                      setIsEditingInlineDesc(true);
+                    }}
+                    className="group/empty rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground cursor-pointer transition-colors hover:border-primary hover:bg-primary/5"
+                  >
+                    <Pencil className="h-4 w-4 mx-auto mb-1.5 opacity-60 group-hover/empty:text-primary transition-colors" />
+                    <span>No description available. </span>
+                    <strong className="text-foreground group-hover/empty:text-primary transition-colors">
+                      Click here to add synopsis
+                    </strong>
+                    <span> in Markdown.</span>
                   </div>
                 )}
               </div>
@@ -666,12 +812,11 @@ export function BookDetailsModal({
                   <Input value={tags} onChange={(e) => setTags(e.target.value)} />
                 </Field>
                 <Field label="Description (Markdown supported: **bold**, *italic*, # headings, - lists, > quotes)">
-                  <textarea
+                  <AutoResizeTextarea
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={6}
+                    onChange={setDescription}
                     placeholder="Enter book synopsis or notes with markdown formatting..."
-                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring font-sans leading-relaxed"
+                    className="min-h-[140px]"
                   />
                 </Field>
                 <div className="grid grid-cols-2 items-end gap-3 pt-1">
