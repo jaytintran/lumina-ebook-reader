@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, FileText, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export function BookCard({
+export const BookCard = memo(function BookCard({
   book,
   scopeType,
   scopeId,
@@ -130,6 +130,8 @@ export function BookCard({
                 <img
                   src={coverUrl}
                   alt={book.title}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               ) : (
@@ -274,4 +276,4 @@ export function BookCard({
       )}
     </>
   );
-}
+});

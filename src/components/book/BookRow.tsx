@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, FileText, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export function BookRow({
+export const BookRow = memo(function BookRow({
   book,
   scopeType,
   scopeId,
@@ -130,6 +130,8 @@ export function BookRow({
                 <img
                   src={coverUrl}
                   alt={book.title}
+                  loading="lazy"
+                  decoding="async"
                   className="h-32 w-22 shrink-0 rounded-sm object-cover shadow-sm"
                 />
               ) : (
@@ -162,45 +164,50 @@ export function BookRow({
                 )}
               </div>
             </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <div className="flex flex-col gap-0.5">
-                <h3 className="truncate text-sm font-semibold leading-tight">
-                  {book.title}
-                </h3>
-                {(settings?.showSubtitle ?? true) && book.subtitle && (
-                  <p className="truncate text-[11px] italic font-normal text-muted-foreground/80 leading-tight">
-                    {book.subtitle}
+            <div className="flex min-w-0 flex-1 flex-col justify-between">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-semibold leading-snug">
+                      {book.title}
+                    </h3>
+                    {(settings?.showSubtitle ?? true) && book.subtitle && (
+                      <p className="text-xs text-muted-foreground">
+                        {book.subtitle}
+                      </p>
+                    )}
+                  </div>
+                  {(settings?.showRating ?? true) && (
+                    <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            i < book.rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-muted-foreground/40",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {(settings?.showAuthor ?? true) && (
+                  <p className="text-xs font-medium text-foreground/80">
+                    {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
                   </p>
                 )}
               </div>
-              {(settings?.showAuthor ?? true) && (
-                <p className="truncate text-xs font-medium text-foreground/80">
-                  {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
-                </p>
-              )}
-              {(settings?.showRating ?? true) && (
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={cn(
-                        "h-3 w-3",
-                        i < book.rating
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-muted-foreground",
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
+
               {(settings?.showProgress ?? true) && (
                 <div
-                  className="flex flex-col gap-1 pt-0.5 max-w-xs"
+                  className="flex flex-col gap-1 pt-2 max-w-xs"
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium">
-                    <span>Progress</span>
+                    <span>Reading Progress</span>
                     <span className="font-semibold text-primary">{book.progress ?? 0}%</span>
                   </div>
                   <input
@@ -220,9 +227,10 @@ export function BookRow({
                   />
                 </div>
               )}
+
               {(settings?.showTags ?? true) && book.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {book.tags.slice(0, 6).map((t) => (
+                <div className="flex flex-wrap gap-1 pt-2">
+                  {book.tags.map((t) => (
                     <span
                       key={t}
                       className="rounded-full bg-accent px-2 py-0.5 text-[10px] text-muted-foreground"
@@ -232,8 +240,9 @@ export function BookRow({
                   ))}
                 </div>
               )}
+
               {(settings?.showDescription ?? true) && book.description && (
-                <div className="pt-0.5">
+                <div className="pt-2">
                   <Tooltip>
                     <TooltipTrigger
                       render={
@@ -246,7 +255,7 @@ export function BookRow({
                           className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/20 hover:bg-primary/20 transition-colors cursor-pointer"
                         >
                           <FileText className="h-3 w-3" />
-                          <span>Description</span>
+                          <span>View Description</span>
                         </button>
                       }
                     />
@@ -269,4 +278,4 @@ export function BookRow({
       )}
     </>
   );
-}
+});

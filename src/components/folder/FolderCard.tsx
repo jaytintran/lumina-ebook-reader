@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { FolderIcon, FolderSettingsDialog } from "./FolderPillStrip";
 
-function MiniCoverSlot({ book }: { book?: Book }) {
+const MiniCoverSlot = memo(function MiniCoverSlot({ book }: { book?: Book }) {
   const coverUrl = useCover(book?.coverKey);
 
   if (!book) {
@@ -20,6 +20,8 @@ function MiniCoverSlot({ book }: { book?: Book }) {
         <img
           src={coverUrl}
           alt={book.title}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
@@ -31,9 +33,9 @@ function MiniCoverSlot({ book }: { book?: Book }) {
       )}
     </div>
   );
-}
+});
 
-export function FolderCard({
+export const FolderCard = memo(function FolderCard({
   folder,
   books,
   onOpen,
@@ -106,4 +108,4 @@ export function FolderCard({
       )}
     </>
   );
-}
+});

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "./db";
 import { deleteFile } from "./opfs";
@@ -92,16 +93,24 @@ export function useScopeBooks(
   scopeId: string,
 ) {
   const { data: folders = [] } = useFolders(scopeType, scopeId);
-  const folderIds = folders.map((f) => f.id!).filter(Boolean);
+  const folderIdsKey = useMemo(
+    () => folders.map((f) => f.id!).filter(Boolean).sort().join(","),
+    [folders],
+  );
+
+  const folderIds = useMemo(
+    () => (folderIdsKey ? folderIdsKey.split(",").map(Number) : []),
+    [folderIdsKey],
+  );
 
   const { data: bookFolders = [] } = useQuery({
-    queryKey: ["bookFolders", scopeType, scopeId, folderIds] as const,
+    queryKey: ["bookFolders", scopeType, scopeId, folderIdsKey] as const,
     enabled: folderIds.length > 0,
     queryFn: () => db.bookFolders.where("folderId").anyOf(folderIds).toArray(),
   });
 
   const { data: orderRows = [] } = useQuery({
-    queryKey: ["bookOrderScope", scopeType, scopeId, folderIds] as const,
+    queryKey: ["bookOrderScope", scopeType, scopeId, folderIdsKey] as const,
     enabled: folderIds.length > 0,
     queryFn: () =>
       db.bookOrder
@@ -110,38 +119,42 @@ export function useScopeBooks(
         .toArray(),
   });
 
-  const books = baseBooks ?? [];
-  const grouped = new Map<number, Book[]>();
-  for (const f of folders) grouped.set(f.id!, []);
+  const result = useMemo(() => {
+    const books = baseBooks ?? [];
+    const grouped = new Map<number, Book[]>();
+    for (const f of folders) grouped.set(f.id!, []);
 
-  const groupedBookIds = new Set<number>();
+    const groupedBookIds = new Set<number>();
 
-  if (folders.length && books.length) {
-    const byId = new Map(books.map((b) => [b.id!, b]));
-    const pos = new Map(orderRows.map((o) => [`${o.scopeId}:${o.bookId}`, o.position]));
-    for (const r of bookFolders) {
-      const book = byId.get(r.bookId);
-      if (book) {
-        grouped.get(r.folderId)?.push(book);
-        groupedBookIds.add(r.bookId);
+    if (folders.length && books.length) {
+      const byId = new Map(books.map((b) => [b.id!, b]));
+      const pos = new Map(orderRows.map((o) => [`${o.scopeId}:${o.bookId}`, o.position]));
+      for (const r of bookFolders) {
+        const book = byId.get(r.bookId);
+        if (book) {
+          grouped.get(r.folderId)?.push(book);
+          groupedBookIds.add(r.bookId);
+        }
+      }
+      for (const f of folders) {
+        grouped
+          .get(f.id!)!
+          .sort(
+            (a, b) =>
+              (pos.get(`${f.id}:${a.id}`) ?? 0) - (pos.get(`${f.id}:${b.id}`) ?? 0),
+          );
       }
     }
-    for (const f of folders) {
-      grouped
-        .get(f.id!)!
-        .sort(
-          (a, b) =>
-            (pos.get(`${f.id}:${a.id}`) ?? 0) - (pos.get(`${f.id}:${b.id}`) ?? 0),
-        );
-    }
-  }
 
-  // Truly ungrouped books (not placed in any folder in this scope)
-  const ungrouped = books.filter((b) => !groupedBookIds.has(b.id!));
-  const allBooks = books;
+    // Truly ungrouped books (not placed in any folder in this scope)
+    const ungrouped = books.filter((b) => !groupedBookIds.has(b.id!));
+    const allBooks = books;
+
+    return { folders, grouped, ungrouped, allBooks };
+  }, [baseBooks, folders, bookFolders, orderRows]);
 
   return {
-    data: { folders, grouped, ungrouped, allBooks },
+    data: result,
     isLoading: false,
   };
 }
