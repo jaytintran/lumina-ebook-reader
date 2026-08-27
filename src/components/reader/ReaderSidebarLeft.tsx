@@ -1,4 +1,4 @@
-import { Bookmark as BookmarkIcon, List, Plus, Trash2 } from "lucide-react";
+import { Bookmark as BookmarkIcon, List, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Bookmark } from "@/db/schema";
@@ -19,6 +19,7 @@ interface ReaderSidebarLeftProps {
   onAddBookmark: () => void;
   onDeleteBookmark: (id: number) => void;
   onBookmarkClick: (pageOrLocation: number | string) => void;
+  onClose?: () => void;
 }
 
 export function ReaderSidebarLeft({
@@ -35,9 +36,10 @@ export function ReaderSidebarLeft({
   onAddBookmark,
   onDeleteBookmark,
   onBookmarkClick,
+  onClose,
 }: ReaderSidebarLeftProps) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 w-80 max-w-[85vw] md:static md:w-72 shrink-0 border-r border-border bg-card shadow-2xl md:shadow-none flex flex-col animate-in slide-in-from-left duration-200">
+    <aside className="fixed inset-y-0 left-0 z-40 w-80 max-w-[85vw] md:static md:w-72 shrink-0 border-r border-border bg-card shadow-2xl md:shadow-none flex flex-col animate-in slide-in-from-left duration-200">
       {/* Left Tabs */}
       <div className="flex h-10 border-b border-border bg-background/50 items-stretch">
         <button
@@ -62,6 +64,16 @@ export function ReaderSidebarLeft({
         >
           <BookmarkIcon className="h-3.5 w-3.5" /> Bookmarks ({bookmarks.length})
         </button>
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onClose}
+            className="md:hidden h-full rounded-none px-2.5 border-l border-border/50 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Left Tab Content */}

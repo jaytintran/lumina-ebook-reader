@@ -134,6 +134,12 @@ export function ReaderPage() {
             const defaultViewport = firstPage.getViewport({ scale: 1 });
             if (alive) {
               setPdfPageSize({ width: defaultViewport.width, height: defaultViewport.height });
+              // Auto calculate initial scale: fit-to-width on mobile
+              if (typeof window !== "undefined" && window.innerWidth < 768) {
+                const availableWidth = window.innerWidth - 16;
+                const fitScale = availableWidth / defaultViewport.width;
+                setPdfScale(Math.max(0.4, Math.min(2.0, Math.round(fitScale * 100) / 100)));
+              }
             }
           } catch {
             // fallback
@@ -208,9 +214,16 @@ export function ReaderPage() {
   }, [book, book?.fileKey]);
 
   // Zoom handlers
-  const handlePdfZoomOut = () => setPdfScale((s) => Math.max(0.5, Math.round((s - 0.2) * 10) / 10));
-  const handlePdfZoomIn = () => setPdfScale((s) => Math.min(3.0, Math.round((s + 0.2) * 10) / 10));
+  const handlePdfZoomOut = () => setPdfScale((s) => Math.max(0.4, Math.round((s - 0.15) * 100) / 100));
+  const handlePdfZoomIn = () => setPdfScale((s) => Math.min(3.0, Math.round((s + 0.15) * 100) / 100));
   const handlePdfZoomReset = () => setPdfScale(1.0);
+  const handlePdfFitWidth = () => {
+    if (!pdfPageSize.width || typeof window === "undefined") return;
+    const padding = window.innerWidth < 768 ? 16 : 64;
+    const availableWidth = window.innerWidth - padding;
+    const fitScale = availableWidth / pdfPageSize.width;
+    setPdfScale(Math.max(0.4, Math.min(2.5, Math.round(fitScale * 100) / 100)));
+  };
 
   const handleEpubZoomOut = () => setEpubFontSize((s) => Math.max(70, s - 10));
   const handleEpubZoomIn = () => setEpubFontSize((s) => Math.min(200, s + 10));
@@ -454,6 +467,7 @@ export function ReaderPage() {
         onPdfZoomIn={handlePdfZoomIn}
         onPdfZoomOut={handlePdfZoomOut}
         onPdfZoomReset={handlePdfZoomReset}
+        onPdfFitWidth={handlePdfFitWidth}
         epubDoc={epubDoc}
         epubSectionIdx={epubSectionIdx}
         epubFontSize={epubFontSize}
@@ -470,6 +484,13 @@ export function ReaderPage() {
 
       {/* 3-Column Main Body */}
       <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Left Drawer Backdrop */}
+        {leftPinned && (
+          <div
+            className="fixed inset-0 z-30 bg-black/60 md:hidden backdrop-blur-xs transition-opacity"
+            onClick={() => setLeftPinned(false)}
+          />
+        )}
         {/* Left Column (TOC / Bookmarks) */}
         {leftPinned && (
           <ReaderSidebarLeft
@@ -478,14 +499,24 @@ export function ReaderPage() {
             book={book}
             pdfOutline={pdfOutline}
             pdfCurrentPage={pdfCurrentPage}
-            onPdfOutlineClick={handleScrollToPdfPage}
+            onPdfOutlineClick={(p) => {
+              handleScrollToPdfPage(p);
+              if (window.innerWidth < 768) setLeftPinned(false);
+            }}
             epubDoc={epubDoc}
             epubSectionIdx={epubSectionIdx}
-            onEpubTocClick={handleEpubTocClick}
+            onEpubTocClick={(h) => {
+              handleEpubTocClick(h);
+              if (window.innerWidth < 768) setLeftPinned(false);
+            }}
             bookmarks={bookmarks}
             onAddBookmark={handleAddBookmark}
             onDeleteBookmark={(id) => deleteBookmark.mutate({ id, bookId })}
-            onBookmarkClick={handleJumpToLocation}
+            onBookmarkClick={(loc) => {
+              handleJumpToLocation(loc);
+              if (window.innerWidth < 768) setLeftPinned(false);
+            }}
+            onClose={() => setLeftPinned(false)}
           />
         )}
 
@@ -493,14 +524,14 @@ export function ReaderPage() {
         <main
           ref={centerScrollRef}
           onMouseUp={handleMouseUp}
-          className="flex-1 overflow-auto bg-neutral-950 flex flex-col items-center justify-start p-4 md:p-8"
+          className="flex-1 overflow-auto bg-neutral-950 flex flex-col items-center justify-start p-2 sm:p-4 md:p-8 w-full"
         >
           {loadingDoc ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground animate-pulse">
               Rendering document...
             </div>
           ) : book.fileType === "pdf" && pdfDoc ? (
-            <div className="flex flex-col items-center pb-16 min-w-min">
+            <div className="flex flex-col items-center pb-16 w-full max-w-full overflow-x-auto">
               {Array.from({ length: pdfNumPages }).map((_, idx) => (
                 <PdfPageItem
                   key={idx + 1}
@@ -540,6 +571,13 @@ export function ReaderPage() {
           )}
         </main>
 
+        {/* Mobile Right Drawer Backdrop */}
+        {rightPinned && (
+          <div
+            className="fixed inset-0 z-30 bg-black/60 md:hidden backdrop-blur-xs transition-opacity"
+            onClick={() => setRightPinned(false)}
+          />
+        )}
         {/* Right Column (Notes, Highlights, Metadata) */}
         {rightPinned && (
           <ReaderSidebarRight
@@ -552,14 +590,20 @@ export function ReaderPage() {
             onUpdateNote={(id, patch) => updateNote.mutate({ id, bookId, patch })}
             onDeleteNote={(id) => deleteNote.mutate({ id, bookId })}
             locationLabel={book.fileType === "pdf" ? `page ${pdfCurrentPage}` : `section ${epubSectionIdx + 1}`}
-            onJumpToLocation={handleJumpToLocation}
+            onJumpToLocation={(loc) => {
+              handleJumpToLocation(loc);
+              if (window.innerWidth < 768) setRightPinned(false);
+            }}
             highlights={highlights}
             selectedText={selectedText}
             selectedColor={selectedColor}
             onSelectColor={setSelectedColor}
             onSaveHighlight={handleSaveHighlight}
             onDeleteHighlight={(id) => deleteHighlight.mutate({ id, bookId })}
-            onHighlightLocClick={handleJumpToLocation}
+            onHighlightLocClick={(loc) => {
+              handleJumpToLocation(loc);
+              if (window.innerWidth < 768) setRightPinned(false);
+            }}
             bookFileType={book.fileType}
             metaTitle={metaTitle}
             metaSubtitle={metaSubtitle}
@@ -579,6 +623,7 @@ export function ReaderPage() {
             onChangeMetaTags={setMetaTags}
             onChangeMetaDesc={setMetaDesc}
             onSaveMetadata={handleSaveMetadata}
+            onClose={() => setRightPinned(false)}
           />
         )}
       </div>

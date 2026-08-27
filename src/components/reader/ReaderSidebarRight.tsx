@@ -8,6 +8,7 @@ import {
   Star,
   StickyNote,
   Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,7 @@ interface ReaderSidebarRightProps {
   onChangeMetaTags: (v: string) => void;
   onChangeMetaDesc: (v: string) => void;
   onSaveMetadata: () => void;
+  onClose?: () => void;
 }
 
 export function ReaderSidebarRight({
@@ -95,6 +97,7 @@ export function ReaderSidebarRight({
   onChangeMetaTags,
   onChangeMetaDesc,
   onSaveMetadata,
+  onClose,
 }: ReaderSidebarRightProps) {
   const [activeModalNote, setActiveModalNote] = useState<Note | null>(null);
   const [noteSearch, setNoteSearch] = useState("");
@@ -119,7 +122,7 @@ export function ReaderSidebarRight({
 
   return (
     <>
-      <aside className="fixed inset-y-0 right-0 z-30 w-80 max-w-[85vw] md:static md:w-80 shrink-0 border-l border-border bg-card shadow-2xl md:shadow-none flex flex-col animate-in slide-in-from-right duration-200">
+      <aside className="fixed inset-y-0 right-0 z-40 w-80 max-w-[85vw] md:static md:w-80 shrink-0 border-l border-border bg-card shadow-2xl md:shadow-none flex flex-col animate-in slide-in-from-right duration-200">
         {/* Right Tabs */}
         <div className="flex h-10 border-b border-border bg-background/50 items-stretch">
           <button
@@ -155,6 +158,16 @@ export function ReaderSidebarRight({
           >
             <Info className="h-3.5 w-3.5" /> Metadata
           </button>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="md:hidden h-full rounded-none px-2.5 border-l border-border/50 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         {/* Right Tab Content */}

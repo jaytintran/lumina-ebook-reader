@@ -155,7 +155,7 @@ export function PdfPageItem({
     <div
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
-      className="relative mb-6 shadow-2xl rounded-sm border border-neutral-800 bg-white select-text"
+      className="relative mb-4 md:mb-6 shadow-xl rounded-sm border border-neutral-800 bg-white select-text shrink-0"
       style={{
         width: `${expectedWidth}px`,
         height: `${expectedHeight}px`,
@@ -163,7 +163,7 @@ export function PdfPageItem({
         "--scale-factor": scale,
       } as React.CSSProperties}
     >
-      <canvas ref={canvasRef} className="block" width={expectedWidth} height={expectedHeight} />
+      <canvas ref={canvasRef} className="block w-full h-full" width={expectedWidth} height={expectedHeight} />
       <div
         ref={textLayerRef}
         className="textLayer"

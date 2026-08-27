@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Check,
   ChevronDown,
@@ -21,23 +22,58 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import {
   useAddBooksToCollection,
+  useAddBooksToFolder,
   useCollections,
   useDeleteBooks,
+  useFolders,
 } from "@/db/hooks";
+import { FolderIcon } from "@/components/folder/FolderPillStrip";
 import { BulkEditModal } from "./BulkEditModal";
 
 export function BulkActionBar() {
+  const { pathname } = useLocation();
   const ids = useUIStore((s) => s.selectedIds);
   const clearSelection = useUIStore((s) => s.clearSelection);
   const deleteBooks = useDeleteBooks();
   const addToCollection = useAddBooksToCollection();
+  const addToFolder = useAddBooksToFolder();
   const { data: collections = [] } = useCollections();
   const [editOpen, setEditOpen] = useState(false);
 
+  let scopeType = "none";
+  let scopeId = "none";
+
+  if (pathname === "/") {
+    scopeType = "view";
+    scopeId = "home";
+  } else if (pathname === "/favorites") {
+    scopeType = "view";
+    scopeId = "favorites";
+  } else if (pathname === "/currently-reading") {
+    scopeType = "view";
+    scopeId = "currently-reading";
+  } else if (pathname === "/wanna-read") {
+    scopeType = "view";
+    scopeId = "wanna-read";
+  } else if (pathname === "/finished") {
+    scopeType = "view";
+    scopeId = "finished";
+  } else if (pathname.startsWith("/collections/")) {
+    scopeType = "collection";
+    scopeId = pathname.replace("/collections/", "");
+  }
+
+  const { data: folders = [] } = useFolders(scopeType, scopeId);
+
   if (!ids.length) return null;
 
-  const moveTo = (collectionId: number) => {
+  const moveToCollection = (collectionId: number) => {
     addToCollection.mutate({ bookIds: ids, collectionId });
+    clearSelection();
+  };
+
+  const moveToFolder = (folderId: number) => {
+    addToFolder.mutate({ bookIds: ids, folderId });
     clearSelection();
   };
 
@@ -66,6 +102,42 @@ export function BulkActionBar() {
           <span>Edit</span>
         </Button>
 
+        {folders.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 rounded-lg text-xs font-medium shadow-2xs hover:bg-accent"
+                />
+              }
+            >
+              <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>Folder</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-44 p-1">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Folders
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {folders.map((f) => (
+                  <DropdownMenuItem
+                    key={f.id}
+                    onClick={() => moveToFolder(f.id!)}
+                    className="cursor-pointer gap-2 rounded-md px-2.5 py-1.5 text-xs"
+                  >
+                    <FolderIcon name={f.icon} className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="truncate">{f.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         {collections.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -90,7 +162,7 @@ export function BulkActionBar() {
                 {collections.map((c) => (
                   <DropdownMenuItem
                     key={c.id}
-                    onClick={() => moveTo(c.id!)}
+                    onClick={() => moveToCollection(c.id!)}
                     className="cursor-pointer gap-2 rounded-md px-2.5 py-1.5 text-xs"
                   >
                     <Folder className="h-3.5 w-3.5 text-muted-foreground" />

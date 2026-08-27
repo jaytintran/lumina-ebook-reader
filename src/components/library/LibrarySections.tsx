@@ -1,9 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { ChevronDown, ChevronRight, FolderPlus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  FolderPlus,
+} from "lucide-react";
 import { useScopeBooks } from "@/db/hooks";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { BookGrid } from "@/components/book/BookGrid";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   FolderIcon,
   FolderPillStrip,
@@ -118,28 +126,100 @@ export function LibrarySections({
   emptyText: string;
 }) {
   const { data } = useScopeBooks(baseBooks, scopeType, scopeId);
+  const storageKey = `lumina-hide-grouped-${scopeType}-${scopeId}`;
+
+  const [hideGrouped, setHideGrouped] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(storageKey) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      setHideGrouped(localStorage.getItem(storageKey) === "true");
+    } catch {
+      setHideGrouped(false);
+    }
+  }, [storageKey]);
+
+  const toggleHideGrouped = () => {
+    setHideGrouped((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(storageKey, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   if (!data) return null;
-  const { folders, grouped, ungrouped } = data;
+  const { folders, grouped, ungrouped, allBooks } = data;
+  const displayedBooks = hideGrouped ? ungrouped : allBooks;
+  const headerTitle = hideGrouped
+    ? "Ungrouped Books"
+    : title || "All Books";
 
   return (
     <div className="flex flex-col gap-8">
       <FolderPillStrip scopeType={scopeType} scopeId={scopeId} />
 
       {/* FLAT LIST BOOKS */}
-      {ungrouped.length > 0 && (
+      {(displayedBooks.length > 0 || hideGrouped) && baseBooks.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold">
-            {folders.length ? "All Books" : title || "All Books"}
-          </h2>
-          <BookGrid
-            books={ungrouped}
-            scopeType={scopeType}
-            scopeId={scopeId}
-            sortable="global"
-          />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">{headerTitle}</h2>
+              <span className="text-xs text-muted-foreground font-normal tabular-nums">
+                ({displayedBooks.length})
+              </span>
+            </div>
+
+            {folders.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleHideGrouped}
+                className={cn(
+                  "h-7 gap-1.5 px-2.5 text-xs font-medium transition-colors cursor-pointer",
+                  hideGrouped
+                    ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+                )}
+                title={
+                  hideGrouped
+                    ? "Showing ungrouped books. Click to show all books."
+                    : "Showing all books. Click to hide books in folders."
+                }
+              >
+                {hideGrouped ? (
+                  <EyeOff className="h-3.5 w-3.5 text-primary" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+                <span>Hide Grouped</span>
+              </Button>
+            )}
+          </div>
+
+          {displayedBooks.length > 0 ? (
+            <BookGrid
+              books={displayedBooks}
+              scopeType={scopeType}
+              scopeId={scopeId}
+              sortable="global"
+            />
+          ) : (
+            <div className="rounded-lg border border-dashed border-border/70 py-6 text-center text-xs text-muted-foreground">
+              All books in this view are organized into folders.
+            </div>
+          )}
         </section>
       )}
+
       {baseBooks.length === 0 && (
         <p className="text-sm text-muted-foreground">{emptyText}</p>
       )}

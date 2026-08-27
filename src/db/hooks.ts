@@ -114,12 +114,17 @@ export function useScopeBooks(
   const grouped = new Map<number, Book[]>();
   for (const f of folders) grouped.set(f.id!, []);
 
+  const groupedBookIds = new Set<number>();
+
   if (folders.length && books.length) {
     const byId = new Map(books.map((b) => [b.id!, b]));
     const pos = new Map(orderRows.map((o) => [`${o.scopeId}:${o.bookId}`, o.position]));
     for (const r of bookFolders) {
       const book = byId.get(r.bookId);
-      if (book) grouped.get(r.folderId)?.push(book);
+      if (book) {
+        grouped.get(r.folderId)?.push(book);
+        groupedBookIds.add(r.bookId);
+      }
     }
     for (const f of folders) {
       grouped
@@ -131,11 +136,12 @@ export function useScopeBooks(
     }
   }
 
-  // All base books remain in the main flat list view
-  const ungrouped = books;
+  // Truly ungrouped books (not placed in any folder in this scope)
+  const ungrouped = books.filter((b) => !groupedBookIds.has(b.id!));
+  const allBooks = books;
 
   return {
-    data: { folders, grouped, ungrouped },
+    data: { folders, grouped, ungrouped, allBooks },
     isLoading: false,
   };
 }
