@@ -343,6 +343,18 @@ export function SettingsModal() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-foreground">Folder Display</span>
+                  <Segment
+                    value={settings.folderViewMode ?? "sections"}
+                    onChange={(folderViewMode) => updateSettings.mutate({ folderViewMode })}
+                    options={[
+                      { value: "sections", label: "Sections" },
+                      { value: "cards", label: "Cards" },
+                    ]}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-foreground">Books Per Row</span>
                   <Segment
                     value={settings.booksPerRow}

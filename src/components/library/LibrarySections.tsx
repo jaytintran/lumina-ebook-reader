@@ -7,7 +7,7 @@ import {
   EyeOff,
   FolderPlus,
 } from "lucide-react";
-import { useScopeBooks } from "@/db/hooks";
+import { useScopeBooks, useSettings } from "@/db/hooks";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { BookGrid } from "@/components/book/BookGrid";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   FolderIcon,
   FolderPillStrip,
 } from "@/components/folder/FolderPillStrip";
+import { FolderCard } from "@/components/folder/FolderCard";
 
 function FolderSection({
   folder,
@@ -125,6 +126,7 @@ export function LibrarySections({
   scopeId: string;
   emptyText: string;
 }) {
+  const { data: settings } = useSettings();
   const { data } = useScopeBooks(baseBooks, scopeType, scopeId);
   const storageKey = `lumina-hide-grouped-${scopeType}-${scopeId}`;
 
@@ -163,9 +165,45 @@ export function LibrarySections({
     ? "Ungrouped Books"
     : title || "All Books";
 
+  const isCardsMode = settings?.folderViewMode === "cards";
+  const cols = settings?.booksPerRow ?? 4;
+
   return (
     <div className="flex flex-col gap-8">
       <FolderPillStrip scopeType={scopeType} scopeId={scopeId} />
+
+      {/* FOLDERS GRID (When in Cards Mode) */}
+      {isCardsMode && folders.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">Folders</h2>
+              <span className="text-xs text-muted-foreground font-normal tabular-nums">
+                ({folders.length})
+              </span>
+            </div>
+          </div>
+          <div
+            className="grid gap-4"
+            style={{
+              gridTemplateColumns:
+                settings?.viewMode === "row"
+                  ? `repeat(auto-fill, minmax(min(100%, max(260px, calc(100% / ${cols} - 1rem))), 1fr))`
+                  : `repeat(${cols}, minmax(0, 1fr))`,
+            }}
+          >
+            {folders.map((f) => (
+              <FolderCard
+                key={f.id}
+                folder={f}
+                books={grouped.get(f.id!) ?? []}
+                scopeType={scopeType}
+                scopeId={scopeId}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* FLAT LIST BOOKS */}
       {(displayedBooks.length > 0 || hideGrouped) && baseBooks.length > 0 && (
@@ -224,16 +262,17 @@ export function LibrarySections({
         <p className="text-sm text-muted-foreground">{emptyText}</p>
       )}
 
-      {/* FOLDER SECTIONS */}
-      {folders.map((f) => (
-        <FolderSection
-          key={f.id}
-          folder={f}
-          books={grouped.get(f.id!) ?? []}
-          scopeType={scopeType}
-          scopeId={scopeId}
-        />
-      ))}
+      {/* FOLDER SECTIONS (When in Sections Mode) */}
+      {!isCardsMode &&
+        folders.map((f) => (
+          <FolderSection
+            key={f.id}
+            folder={f}
+            books={grouped.get(f.id!) ?? []}
+            scopeType={scopeType}
+            scopeId={scopeId}
+          />
+        ))}
     </div>
   );
 }

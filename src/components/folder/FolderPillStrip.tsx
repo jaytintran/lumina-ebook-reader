@@ -234,7 +234,7 @@ export function FolderPillStrip({
   );
 }
 
-function FolderSettingsDialog({
+export function FolderSettingsDialog({
   folder,
   onClose,
 }: {

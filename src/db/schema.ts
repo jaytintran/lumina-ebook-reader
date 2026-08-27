@@ -103,6 +103,7 @@ export interface AppSettings {
   key: string; // always "app" — single settings row
   theme: "dark" | "light";
   viewMode: "grid" | "row";
+  folderViewMode?: "sections" | "cards";
   booksPerRow: number;
   showSubtitle: boolean;
   showAuthor: boolean;
@@ -117,6 +118,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   key: "app",
   theme: "dark",
   viewMode: "grid",
+  folderViewMode: "sections",
   booksPerRow: 4,
   showSubtitle: true,
   showAuthor: true,
