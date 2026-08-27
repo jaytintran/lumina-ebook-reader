@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { FolderIcon, FolderSettingsDialog } from "./FolderPillStrip";
-import { FolderBooksModal } from "./FolderBooksModal";
 
 function MiniCoverSlot({ book }: { book?: Book }) {
   const coverUrl = useCover(book?.coverKey);
@@ -37,16 +36,13 @@ function MiniCoverSlot({ book }: { book?: Book }) {
 export function FolderCard({
   folder,
   books,
-  scopeType,
-  scopeId,
+  onOpen,
 }: {
   folder: FolderT;
   books: Book[];
-  scopeType?: string;
-  scopeId?: string;
+  onOpen: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `folder-${folder.id}` });
-  const [modalOpen, setModalOpen] = useState(false);
   const [editingSettings, setEditingSettings] = useState(false);
 
   const previewBooks = [books[0], books[1], books[2], books[3]];
@@ -55,12 +51,12 @@ export function FolderCard({
     <>
       <div
         ref={setNodeRef}
-        onClick={() => setModalOpen(true)}
+        onClick={onOpen}
         onContextMenu={(e) => {
           e.preventDefault();
           setEditingSettings(true);
         }}
-        title="Click to view folder contents, right-click to edit"
+        title="Click to open folder, right-click to edit"
         className={cn(
           "group relative flex flex-col justify-between cursor-pointer rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/50 hover:bg-accent/20 shadow-xs select-none",
           isOver && "border-primary bg-primary/10 ring-2 ring-primary shadow-md scale-[1.02]",
@@ -101,16 +97,6 @@ export function FolderCard({
           </div>
         </div>
       </div>
-
-      {modalOpen && (
-        <FolderBooksModal
-          folder={folder}
-          books={books}
-          scopeType={scopeType}
-          scopeId={scopeId}
-          onClose={() => setModalOpen(false)}
-        />
-      )}
 
       {editingSettings && (
         <FolderSettingsDialog

@@ -137,9 +137,11 @@ export function FolderIcon({
 function FolderPill({
   folder,
   onEdit,
+  onClick,
 }: {
   folder: FolderT;
   onEdit: () => void;
+  onClick?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `folder-${folder.id}` });
   return (
@@ -156,10 +158,13 @@ function FolderPill({
       )}
     >
       <button
-        onClick={() =>
-          document
-            .getElementById(`folder-${folder.id}`)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        onClick={
+          onClick
+            ? onClick
+            : () =>
+                document
+                  .getElementById(`folder-${folder.id}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
         }
         className="flex items-center gap-1.5"
       >
@@ -173,9 +178,11 @@ function FolderPill({
 export function FolderPillStrip({
   scopeType,
   scopeId,
+  onFolderClick,
 }: {
   scopeType: string;
   scopeId: string;
+  onFolderClick?: (folder: FolderT) => void;
 }) {
   const { data: folders = [] } = useFolders(scopeType, scopeId);
   const saveFolders = useSaveFolders();
@@ -201,7 +208,12 @@ export function FolderPillStrip({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {folders.map((f) => (
-        <FolderPill key={f.id} folder={f} onEdit={() => setEditing(f)} />
+        <FolderPill
+          key={f.id}
+          folder={f}
+          onEdit={() => setEditing(f)}
+          onClick={onFolderClick ? () => onFolderClick(f) : undefined}
+        />
       ))}
       {adding ? (
         <Input
