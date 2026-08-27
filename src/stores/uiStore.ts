@@ -1,5 +1,12 @@
 import { create } from "zustand";
 
+export interface ActiveFolderContext {
+  folderId: number;
+  folderName: string;
+  scopeType: "view" | "collection" | string;
+  scopeId: string;
+}
+
 export const useUIStore = create<{
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
@@ -14,6 +21,8 @@ export const useUIStore = create<{
   setMobileDrawerOpen: (open: boolean) => void;
   isDragging: boolean;
   setIsDragging: (dragging: boolean) => void;
+  activeFolderContext: ActiveFolderContext | null;
+  setActiveFolderContext: (ctx: ActiveFolderContext | null) => void;
 }>((set) => ({
   settingsOpen: false,
   setSettingsOpen: (open) => set({ settingsOpen: open }),
@@ -33,4 +42,6 @@ export const useUIStore = create<{
   setMobileDrawerOpen: (open) => set({ mobileDrawerOpen: open }),
   isDragging: false,
   setIsDragging: (dragging) => set({ isDragging: dragging }),
+  activeFolderContext: null,
+  setActiveFolderContext: (ctx) => set({ activeFolderContext: ctx }),
 }));

@@ -3,7 +3,7 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { unzipSync } from "fflate";
 import { db } from "@/db/db";
 import { readFile, saveFile } from "@/db/opfs";
-import type { Book } from "@/db/schema";
+import type { Book, ReadingStatus } from "@/db/schema";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -53,6 +53,10 @@ export async function backfillMissingFileHashes(): Promise<void> {
 
 export interface ImportOptions {
   replaceBookId?: number; // If replacing an existing duplicate
+  collectionId?: number;
+  folderId?: number;
+  isFavorite?: boolean;
+  readingStatus?: ReadingStatus | null;
 }
 
 /** Import one PDF/EPUB: save bytes to OPFS, compute SHA-256 hash, parse metadata, render a cover, insert/replace Book row. */
@@ -130,7 +134,8 @@ export async function importBookFile(
     description,
     rating: 0,
     tags: [],
-    isFavorite: false,
+    isFavorite: options?.isFavorite ?? false,
+    readingStatus: options?.readingStatus ?? null,
     fileType,
     fileKey,
     fileHash,
@@ -138,8 +143,46 @@ export async function importBookFile(
     order: max ? max.order + 1 : 0,
     dateAdded: Date.now(),
   };
-  const id = await db.books.add(book);
-  return { ...book, id: id as number };
+  const id = (await db.books.add(book)) as number;
+  const savedBook: Book = { ...book, id };
+
+  // If imported into a collection
+  if (options?.collectionId) {
+    const existingCol = await db.bookCollections
+      .where({ bookId: id, collectionId: options.collectionId })
+      .first();
+    if (!existingCol) {
+      await db.bookCollections.add({ bookId: id, collectionId: options.collectionId });
+    }
+  }
+
+  // If imported into a folder
+  if (options?.folderId) {
+    const existingF = await db.bookFolders
+      .where({ bookId: id, folderId: options.folderId })
+      .first();
+    if (!existingF) {
+      await db.bookFolders.add({ bookId: id, folderId: options.folderId });
+    }
+
+    // Append to bookOrder in that folder
+    const existingOrders = await db.bookOrder
+      .where("[scopeType+scopeId]")
+      .equals(["folder", String(options.folderId)])
+      .toArray();
+    const nextPos =
+      existingOrders.length > 0
+        ? Math.max(...existingOrders.map((r) => r.position)) + 1
+        : 0;
+    await db.bookOrder.add({
+      bookId: id,
+      scopeType: "folder",
+      scopeId: String(options.folderId),
+      position: nextPos,
+    });
+  }
+
+  return savedBook;
 }
 
 function str(v: unknown): string {

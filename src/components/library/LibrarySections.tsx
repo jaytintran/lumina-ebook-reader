@@ -201,6 +201,24 @@ export function LibrarySections({
   const activeFolder =
     activeFolderId != null ? folders.find((f) => f.id === activeFolderId) : null;
 
+  const setActiveFolderContext = useUIStore((s) => s.setActiveFolderContext);
+
+  useEffect(() => {
+    if (activeFolder) {
+      setActiveFolderContext({
+        folderId: activeFolder.id!,
+        folderName: activeFolder.name,
+        scopeType,
+        scopeId,
+      });
+    } else {
+      setActiveFolderContext(null);
+    }
+    return () => {
+      setActiveFolderContext(null);
+    };
+  }, [activeFolder?.id, activeFolder?.name, scopeType, scopeId, setActiveFolderContext]);
+
   // --- FULL-PAGE FOLDER DRILL-DOWN VIEW ---
   if (activeFolder) {
     const activeBooks = grouped.get(activeFolder.id!) ?? [];

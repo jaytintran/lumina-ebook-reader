@@ -15,8 +15,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { computeFileHash, findDuplicateBook, importBookFile } from "@/lib/importer";
+import { computeFileHash, findDuplicateBook, importBookFile, type ImportOptions } from "@/lib/importer";
 import { keys } from "@/db/hooks";
+import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 
 interface DuplicateConflict {
@@ -30,11 +31,38 @@ export function ImportButton() {
   const [pendingQueue, setPendingQueue] = useState<File[]>([]);
   const [currentConflict, setCurrentConflict] = useState<DuplicateConflict | null>(null);
   const qc = useQueryClient();
+  const activeFolderContext = useUIStore((s) => s.activeFolderContext);
+
+  const getActiveImportOptions = (): ImportOptions => {
+    if (!activeFolderContext) return {};
+    return {
+      folderId: activeFolderContext.folderId,
+      collectionId:
+        activeFolderContext.scopeType === "collection"
+          ? Number(activeFolderContext.scopeId)
+          : undefined,
+      isFavorite:
+        activeFolderContext.scopeId === "favorites" ? true : undefined,
+      readingStatus:
+        activeFolderContext.scopeId === "currently-reading"
+          ? "currently-reading"
+          : activeFolderContext.scopeId === "wanna-read"
+          ? "wanna-read"
+          : activeFolderContext.scopeId === "finished"
+          ? "finished"
+          : undefined,
+    };
+  };
 
   const processNextInQueue = async (queue: File[]) => {
     if (queue.length === 0) {
       setBusy(false);
       qc.invalidateQueries({ queryKey: keys.books });
+      qc.invalidateQueries({ queryKey: keys.folders });
+      qc.invalidateQueries({ queryKey: ["bookFolders"] });
+      qc.invalidateQueries({ queryKey: ["bookCollections"] });
+      qc.invalidateQueries({ queryKey: ["bookOrderScope"] });
+      qc.invalidateQueries({ queryKey: ["scopeBooks"] });
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
@@ -50,7 +78,7 @@ export function ImportButton() {
       if (duplicate) {
         setCurrentConflict({ file, existingBook: duplicate });
       } else {
-        await importBookFile(file);
+        await importBookFile(file, getActiveImportOptions());
         processNextInQueue(rest);
       }
     } catch (err) {
@@ -74,6 +102,7 @@ export function ImportButton() {
   const handleReplace = async () => {
     if (currentConflict) {
       await importBookFile(currentConflict.file, {
+        ...getActiveImportOptions(),
         replaceBookId: currentConflict.existingBook.id,
       });
     }
@@ -83,11 +112,17 @@ export function ImportButton() {
 
   const handleKeepBoth = async () => {
     if (currentConflict) {
-      await importBookFile(currentConflict.file);
+      await importBookFile(currentConflict.file, getActiveImportOptions());
     }
     setCurrentConflict(null);
     processNextInQueue(pendingQueue);
   };
+
+  const tooltipText = busy
+    ? "Importing…"
+    : activeFolderContext
+    ? `Import books into "${activeFolderContext.folderName}"`
+    : "Import books";
 
   return (
     <>
@@ -116,7 +151,7 @@ export function ImportButton() {
             </Button>
           }
         />
-        <TooltipContent>{busy ? "Importing…" : "Import books"}</TooltipContent>
+        <TooltipContent>{tooltipText}</TooltipContent>
       </Tooltip>
 
       {currentConflict && (
