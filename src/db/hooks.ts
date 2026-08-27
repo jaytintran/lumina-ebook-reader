@@ -8,6 +8,7 @@ import {
   type Book,
   type BookCollection,
   type BookFolder,
+  type BookOrder,
   type Collection,
   type Folder,
 } from "./schema";
@@ -363,15 +364,27 @@ export function useReorderInFolder() {
   const invalidate = useInvalidate();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ folderId, ids }: { folderId: number; ids: number[] }) =>
-      Promise.all(
-        ids.map((bookId, position) =>
-          db.bookOrder.put({ bookId, scopeType: "folder", scopeId: String(folderId), position }),
-        ),
-      ),
+    mutationFn: async ({ folderId, ids }: { folderId: number; ids: number[] }) => {
+      const existing = await db.bookOrder
+        .where("[scopeType+scopeId]")
+        .equals(["folder", String(folderId)])
+        .toArray();
+      const existingMap = new Map(existing.map((r) => [r.bookId, r.id!]));
+
+      const rows: BookOrder[] = ids.map((bookId, position) => ({
+        id: existingMap.get(bookId),
+        bookId,
+        scopeType: "folder",
+        scopeId: String(folderId),
+        position,
+      }));
+
+      await db.bookOrder.bulkPut(rows);
+    },
     onSuccess: (_res, { folderId }) => {
-      invalidate([keys.folderOrder(folderId), keys.books]);
+      invalidate([keys.folderOrder(folderId), keys.books, keys.scopeBooks]);
       qc.invalidateQueries({ queryKey: ["bookOrderScope"] });
+      qc.invalidateQueries({ queryKey: ["scopeBooks"] });
     },
   });
 }

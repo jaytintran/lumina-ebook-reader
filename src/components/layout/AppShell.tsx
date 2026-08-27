@@ -28,6 +28,7 @@ import {
   useCollections,
   useSaveCollections,
   useSaveFolders,
+  useReorderInFolder,
 } from "@/db/hooks";
 import { db } from "@/db/db";
 import { backfillMissingFileHashes } from "@/lib/importer";
@@ -268,6 +269,7 @@ export function AppShell() {
   const addToCollection = useAddBooksToCollection();
   const addToFolder = useAddBooksToFolder();
   const reorderGlobal = useReorderGlobal();
+  const reorderInFolder = useReorderInFolder();
   const saveFolders = useSaveFolders();
 
   const [activeBook, setActiveBook] = useState<Book | null>(null);
@@ -309,6 +311,13 @@ export function AppShell() {
     if (typeof id === "number") {
       const found = books.find((b) => b.id === id);
       if (found) setActiveBook(found);
+    } else if (typeof id === "string" && id.startsWith("folder-book-")) {
+      const parts = id.slice("folder-book-".length).split("-");
+      const bookId = Number(parts[1]);
+      if (!Number.isNaN(bookId)) {
+        const found = books.find((b) => b.id === bookId);
+        if (found) setActiveBook(found);
+      }
     } else if (typeof id === "string" && id.startsWith("folder-pill-")) {
       const fId = Number(id.slice("folder-pill-".length));
       if (!Number.isNaN(fId)) {
@@ -335,7 +344,53 @@ export function AppShell() {
     const activeIdStr = String(active.id);
     const overIdStr = String(over.id);
 
-    // 0. Folder Pill reordering
+    // 0a. Folder-internal book reordering
+    if (
+      activeIdStr.startsWith("folder-book-") &&
+      overIdStr.startsWith("folder-book-")
+    ) {
+      const activeParts = activeIdStr.slice("folder-book-".length).split("-");
+      const overParts = overIdStr.slice("folder-book-".length).split("-");
+      const activeFolderId = Number(activeParts[0]);
+      const overFolderId = Number(overParts[0]);
+      const activeBookId = Number(activeParts[1]);
+      const overBookId = Number(overParts[1]);
+
+      if (
+        !Number.isNaN(activeFolderId) &&
+        activeFolderId === overFolderId &&
+        activeBookId !== overBookId
+      ) {
+        // Fetch books in this folder in their current order
+        const existingBookFolders = await db.bookFolders
+          .where("folderId")
+          .equals(activeFolderId)
+          .toArray();
+        const folderBookIds = existingBookFolders.map((bf) => bf.bookId);
+
+        const orderRows = await db.bookOrder
+          .where("[scopeType+scopeId]")
+          .equals(["folder", String(activeFolderId)])
+          .toArray();
+        const pos = new Map(orderRows.map((o) => [o.bookId, o.position]));
+
+        // Sort current list by existing position
+        const sortedIds = [...folderBookIds].sort(
+          (a, b) => (pos.get(a) ?? 0) - (pos.get(b) ?? 0),
+        );
+
+        const oldIndex = sortedIds.indexOf(activeBookId);
+        const newIndex = sortedIds.indexOf(overBookId);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reordered = arrayMove(sortedIds, oldIndex, newIndex);
+          reorderInFolder.mutate({ folderId: activeFolderId, ids: reordered });
+        }
+      }
+      return;
+    }
+
+    // 0b. Folder Pill reordering
     if (
       activeIdStr.startsWith("folder-pill-") &&
       overIdStr.startsWith("folder-pill-")
@@ -392,14 +447,22 @@ export function AppShell() {
     }
 
     // 2. Book drag & drop targets
-    const activeId = active.id as number;
-    if (activeId === (over.id as unknown)) return;
+    let activeBookId: number | null = null;
+    if (typeof active.id === "number") {
+      activeBookId = active.id;
+    } else if (activeIdStr.startsWith("folder-book-")) {
+      const parts = activeIdStr.slice("folder-book-".length).split("-");
+      activeBookId = Number(parts[1]);
+    }
+
+    if (activeBookId == null) return;
+    if (activeIdStr === overIdStr) return;
 
     const selectedIds = useUIStore.getState().selectedIds;
     const targetBookIds =
-      selectedIds.length > 0 && selectedIds.includes(activeId)
+      selectedIds.length > 0 && selectedIds.includes(activeBookId)
         ? selectedIds
-        : [activeId];
+        : [activeBookId];
 
     // 2a. Sidebar primary navigation drop targets
     if (overIdStr === "sidebar-nav-favorites") {
@@ -456,7 +519,7 @@ export function AppShell() {
     // 2d. Global book reordering
     if (typeof over.id === "number") {
       const list = books.map((b) => b.id!);
-      const oldI = list.indexOf(activeId);
+      const oldI = list.indexOf(activeBookId);
       const newI = list.indexOf(over.id as number);
       if (oldI !== -1 && newI !== -1) {
         reorderGlobal.mutate(arrayMove(list, oldI, newI));

@@ -18,7 +18,7 @@ function SortableItem({
   children,
   disabled,
 }: {
-  id: number;
+  id: string | number;
   children: ReactNode;
   disabled?: boolean;
 }) {
@@ -63,6 +63,11 @@ export function BookGrid({
   const cols = settings?.booksPerRow ?? 4;
   const Row = settings?.viewMode === "row" ? BookRow : BookCard;
 
+  const isFolder =
+    typeof sortable === "object" && sortable !== null && "folderId" in sortable;
+  const getItemId = (book: Book): string | number =>
+    isFolder ? `folder-book-${sortable.folderId}-${book.id}` : book.id!;
+
   const grid = (
     <div
       className="grid gap-4"
@@ -77,7 +82,7 @@ export function BookGrid({
         sortable ? (
           <SortableItem
             key={book.id}
-            id={book.id!}
+            id={getItemId(book)}
             disabled={isEditingMetadata}
           >
             <Row book={book} scopeType={scopeType} scopeId={scopeId} />
@@ -93,7 +98,7 @@ export function BookGrid({
 
   return (
     <SortableContext
-      items={books.map((b) => b.id!)}
+      items={books.map((b) => getItemId(b))}
       strategy={rectSortingStrategy}
     >
       {grid}

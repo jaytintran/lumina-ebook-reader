@@ -178,18 +178,18 @@ export const BookRow = memo(function BookRow({
                     )}
                   </div>
                   {(settings?.showRating ?? true) && (
-                    <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            "h-3.5 w-3.5",
-                            i < book.rating
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-muted-foreground/40",
-                          )}
-                        />
-                      ))}
+                    <div className="flex items-center gap-1 shrink-0 pt-0.5 text-xs font-semibold text-muted-foreground">
+                      <span className={cn(book.rating > 0 && "text-foreground font-bold")}>
+                        {book.rating}
+                      </span>
+                      <Star
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          book.rating > 0
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-muted-foreground/40",
+                        )}
+                      />
                     </div>
                   )}
                 </div>
