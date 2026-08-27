@@ -30,6 +30,7 @@ import {
   useSaveCollections,
   useDeleteCollection,
 } from "@/db/hooks";
+import { useUIStore } from "@/stores/uiStore";
 import type { Collection } from "@/db/schema";
 import { Input } from "@/components/ui/input";
 import {
@@ -65,9 +66,10 @@ function DroppableNavItem({
   icon: typeof Home;
   dropId?: string;
 }) {
+  const isDragging = useUIStore((s) => s.isDragging);
   const { setNodeRef, isOver } = useDroppable({
     id: dropId ?? `nav-${to}`,
-    disabled: !dropId,
+    disabled: !dropId || !isDragging,
   });
 
   return (

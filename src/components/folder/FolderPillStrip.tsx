@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { useDroppable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Anchor,
   BookOpen,
@@ -143,30 +148,49 @@ function FolderPill({
   onEdit: () => void;
   onClick?: () => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `folder-${folder.id}` });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `folder-pill-${folder.id}` });
+
   return (
     <div
       ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.35 : undefined,
+        zIndex: isDragging ? 20 : undefined,
+      }}
+      {...attributes}
+      {...listeners}
       onContextMenu={(e) => {
         e.preventDefault();
         onEdit();
       }}
-      title="Right-click to edit or delete folder"
+      title="Drag to reorder, click to open, right-click to edit"
       className={cn(
-        "group flex items-center rounded-md border border-border bg-card py-1 px-3 text-sm transition-colors hover:bg-accent hover:text-foreground cursor-pointer select-none",
-        isOver && "border-primary bg-primary/10",
+        "group flex items-center rounded-md border border-border bg-card py-1 px-3 text-sm transition-colors hover:bg-accent hover:text-foreground cursor-grab active:cursor-grabbing select-none",
+        isDragging && "border-primary ring-2 ring-primary/40 shadow-md",
       )}
     >
       <button
-        onClick={
-          onClick
-            ? onClick
-            : () =>
-                document
-                  .getElementById(`folder-${folder.id}`)
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
-        }
-        className="flex items-center gap-1.5"
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onClick) {
+            onClick();
+          } else {
+            document
+              .getElementById(`folder-${folder.id}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }}
+        className="flex items-center gap-1.5 cursor-pointer"
       >
         <FolderIcon name={folder.icon} className="h-4 w-4 text-primary" />
         {folder.name}
@@ -207,14 +231,19 @@ export function FolderPillStrip({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {folders.map((f) => (
-        <FolderPill
-          key={f.id}
-          folder={f}
-          onEdit={() => setEditing(f)}
-          onClick={onFolderClick ? () => onFolderClick(f) : undefined}
-        />
-      ))}
+      <SortableContext
+        items={folders.map((f) => `folder-pill-${f.id}`)}
+        strategy={rectSortingStrategy}
+      >
+        {folders.map((f) => (
+          <FolderPill
+            key={f.id}
+            folder={f}
+            onEdit={() => setEditing(f)}
+            onClick={onFolderClick ? () => onFolderClick(f) : undefined}
+          />
+        ))}
+      </SortableContext>
       {adding ? (
         <Input
           autoFocus

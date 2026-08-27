@@ -27,10 +27,13 @@ import {
   useReorderGlobal,
   useCollections,
   useSaveCollections,
+  useSaveFolders,
 } from "@/db/hooks";
+import { db } from "@/db/db";
 import { backfillMissingFileHashes } from "@/lib/importer";
 import { useUIStore } from "@/stores/uiStore";
 import { useCover } from "@/lib/useCover";
+import { FolderIcon } from "@/components/folder/FolderPillStrip";
 import type { Book } from "@/db/schema";
 
 import { Heart, Star } from "lucide-react";
@@ -265,8 +268,14 @@ export function AppShell() {
   const addToCollection = useAddBooksToCollection();
   const addToFolder = useAddBooksToFolder();
   const reorderGlobal = useReorderGlobal();
+  const saveFolders = useSaveFolders();
 
   const [activeBook, setActiveBook] = useState<Book | null>(null);
+  const [activeFolderPill, setActiveFolderPill] = useState<{
+    id: number;
+    name: string;
+    icon?: string;
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -295,20 +304,72 @@ export function AppShell() {
   }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
+    useUIStore.getState().setIsDragging(true);
     const id = event.active.id;
     if (typeof id === "number") {
       const found = books.find((b) => b.id === id);
       if (found) setActiveBook(found);
+    } else if (typeof id === "string" && id.startsWith("folder-pill-")) {
+      const fId = Number(id.slice("folder-pill-".length));
+      if (!Number.isNaN(fId)) {
+        db.folders.get(fId).then((f) => {
+          if (f && f.id) setActiveFolderPill({ id: f.id, name: f.name, icon: f.icon });
+        });
+      }
     }
   };
 
-  const handleDragEnd = (e: DragEndEvent) => {
+  const handleDragCancel = () => {
+    useUIStore.getState().setIsDragging(false);
     setActiveBook(null);
+    setActiveFolderPill(null);
+  };
+
+  const handleDragEnd = async (e: DragEndEvent) => {
+    useUIStore.getState().setIsDragging(false);
+    setActiveBook(null);
+    setActiveFolderPill(null);
     const { active, over } = e;
     if (!over) return;
 
     const activeIdStr = String(active.id);
     const overIdStr = String(over.id);
+
+    // 0. Folder Pill reordering
+    if (
+      activeIdStr.startsWith("folder-pill-") &&
+      overIdStr.startsWith("folder-pill-")
+    ) {
+      const activeFolderId = Number(activeIdStr.slice("folder-pill-".length));
+      const overFolderId = Number(overIdStr.slice("folder-pill-".length));
+      if (
+        !Number.isNaN(activeFolderId) &&
+        !Number.isNaN(overFolderId) &&
+        activeFolderId !== overFolderId
+      ) {
+        const activeFolder = await db.folders.get(activeFolderId);
+        if (activeFolder) {
+          const scopeFolders = await db.folders
+            .where({
+              scopeType: activeFolder.scopeType,
+              scopeId: activeFolder.scopeId,
+            })
+            .sortBy("order");
+          const oldIndex = scopeFolders.findIndex((f) => f.id === activeFolderId);
+          const newIndex = scopeFolders.findIndex((f) => f.id === overFolderId);
+          if (oldIndex !== -1 && newIndex !== -1) {
+            const reordered = arrayMove(scopeFolders, oldIndex, newIndex).map(
+              (f, idx) => ({
+                ...f,
+                order: idx,
+              }),
+            );
+            saveFolders.mutate(reordered);
+          }
+        }
+      }
+      return;
+    }
 
     // 1. Sidebar collection reordering
     if (activeIdStr.startsWith("sidebar-collection-")) {
@@ -380,9 +441,11 @@ export function AppShell() {
       return;
     }
 
-    // 2c. In-page folder drop targets
-    if (overIdStr.startsWith("folder-")) {
-      const folderId = Number(overIdStr.slice("folder-".length));
+    // 2c. In-page folder drop targets (cards, sections, and pills)
+    if (overIdStr.startsWith("folder-pill-") || overIdStr.startsWith("folder-")) {
+      const folderId = overIdStr.startsWith("folder-pill-")
+        ? Number(overIdStr.slice("folder-pill-".length))
+        : Number(overIdStr.slice("folder-".length));
       if (!Number.isNaN(folderId)) {
         addToFolder.mutate({ bookIds: targetBookIds, folderId });
         if (selectedIds.length > 0) useUIStore.getState().clearSelection();
@@ -407,6 +470,7 @@ export function AppShell() {
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar />
@@ -424,6 +488,15 @@ export function AppShell() {
         <SettingsModal />
         <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
           {activeBook ? <DraggedBookOverlay book={activeBook} /> : null}
+          {activeFolderPill ? (
+            <div className="flex items-center gap-1.5 rounded-md border-2 border-primary bg-card/95 py-1 px-3 text-sm font-semibold shadow-2xl text-foreground ring-2 ring-background pointer-events-none select-none">
+              <FolderIcon
+                name={activeFolderPill.icon}
+                className="h-4 w-4 text-primary"
+              />
+              <span>{activeFolderPill.name}</span>
+            </div>
+          ) : null}
         </DragOverlay>
       </div>
     </DndContext>

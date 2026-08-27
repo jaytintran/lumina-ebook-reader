@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { useScopeBooks, useSettings } from "@/db/hooks";
+import { useUIStore } from "@/stores/uiStore";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { BookGrid } from "@/components/book/BookGrid";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,11 @@ function FolderSection({
   scopeId: string;
   onOpenFolderView?: () => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `folder-${folder.id}` });
+  const isDragging = useUIStore((s) => s.isDragging);
+  const { setNodeRef, isOver } = useDroppable({
+    id: `folder-${folder.id}`,
+    disabled: !isDragging,
+  });
   const storageKey = `folder-collapsed-${folder.id}`;
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -146,6 +151,10 @@ export function LibrarySections({
 
   const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
   const [editingActiveFolder, setEditingActiveFolder] = useState(false);
+
+  const handleOpenFolder = useCallback((folderId: number) => {
+    setActiveFolderId(folderId);
+  }, []);
 
   const [hideGrouped, setHideGrouped] = useState<boolean>(() => {
     try {
@@ -274,7 +283,7 @@ export function LibrarySections({
       <FolderPillStrip
         scopeType={scopeType}
         scopeId={scopeId}
-        onFolderClick={isCardsMode ? (folder) => setActiveFolderId(folder.id!) : undefined}
+        onFolderClick={isCardsMode ? (folder) => handleOpenFolder(folder.id!) : undefined}
       />
 
       {/* FOLDERS GRID (When in Cards Mode) */}
@@ -302,7 +311,7 @@ export function LibrarySections({
                 key={f.id}
                 folder={f}
                 books={grouped.get(f.id!) ?? []}
-                onOpen={() => setActiveFolderId(f.id!)}
+                onOpen={handleOpenFolder}
               />
             ))}
           </div>

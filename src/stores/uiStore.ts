@@ -12,6 +12,8 @@ export const useUIStore = create<{
   setIsEditingMetadata: (editing: boolean) => void;
   mobileDrawerOpen: boolean;
   setMobileDrawerOpen: (open: boolean) => void;
+  isDragging: boolean;
+  setIsDragging: (dragging: boolean) => void;
 }>((set) => ({
   settingsOpen: false,
   setSettingsOpen: (open) => set({ settingsOpen: open }),
@@ -29,4 +31,6 @@ export const useUIStore = create<{
   setIsEditingMetadata: (editing) => set({ isEditingMetadata: editing }),
   mobileDrawerOpen: false,
   setMobileDrawerOpen: (open) => set({ mobileDrawerOpen: open }),
+  isDragging: false,
+  setIsDragging: (dragging) => set({ isDragging: dragging }),
 }));

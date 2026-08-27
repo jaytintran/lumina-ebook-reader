@@ -2,38 +2,75 @@ import { memo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
+import { useUIStore } from "@/stores/uiStore";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { FolderIcon, FolderSettingsDialog } from "./FolderPillStrip";
 
-const MiniCoverSlot = memo(function MiniCoverSlot({ book }: { book?: Book }) {
-  const coverUrl = useCover(book?.coverKey);
+const MiniCoverSlot = memo(
+  function MiniCoverSlot({ book }: { book?: Book }) {
+    const coverUrl = useCover(book?.coverKey);
 
-  if (!book) {
+    if (!book) {
+      return (
+        <div className="flex h-full w-full items-center justify-center rounded border border-dashed border-border/30 bg-background/20" />
+      );
+    }
+
     return (
-      <div className="flex h-full w-full items-center justify-center rounded border border-dashed border-border/30 bg-background/20" />
+      <div
+        className="relative h-full w-full overflow-hidden rounded bg-neutral-900 border border-border/50 shadow-xs flex items-center justify-center"
+        style={{ contain: "paint" }}
+      >
+        {coverUrl ? (
+          <img
+            src={coverUrl}
+            alt={book.title}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center p-1 text-center bg-card">
+            <span className="text-[8px] font-semibold line-clamp-2 text-foreground/80 leading-tight">
+              {book.title}
+            </span>
+          </div>
+        )}
+      </div>
     );
+  },
+  (prev, next) =>
+    prev.book?.id === next.book?.id &&
+    prev.book?.coverKey === next.book?.coverKey &&
+    prev.book?.title === next.book?.title,
+);
+
+function areFolderCardPropsEqual(
+  prev: { folder: FolderT; books: Book[]; onOpen: (id: number) => void },
+  next: { folder: FolderT; books: Book[]; onOpen: (id: number) => void },
+) {
+  if (
+    prev.onOpen !== next.onOpen ||
+    prev.folder.id !== next.folder.id ||
+    prev.folder.name !== next.folder.name ||
+    prev.folder.icon !== next.folder.icon ||
+    prev.books.length !== next.books.length
+  ) {
+    return false;
   }
 
-  return (
-    <div className="relative h-full w-full overflow-hidden rounded bg-neutral-900 border border-border/50 shadow-xs flex items-center justify-center">
-      {coverUrl ? (
-        <img
-          src={coverUrl}
-          alt={book.title}
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center p-1 text-center bg-card">
-          <span className="text-[8px] font-semibold line-clamp-2 text-foreground/80 leading-tight">
-            {book.title}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-});
+  // Only compare the first 4 preview books since those are what's rendered
+  for (let i = 0; i < 4; i++) {
+    if (
+      prev.books[i]?.id !== next.books[i]?.id ||
+      prev.books[i]?.coverKey !== next.books[i]?.coverKey
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export const FolderCard = memo(function FolderCard({
   folder,
@@ -42,23 +79,34 @@ export const FolderCard = memo(function FolderCard({
 }: {
   folder: FolderT;
   books: Book[];
-  onOpen: () => void;
+  onOpen: (folderId: number) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `folder-${folder.id}` });
+  const isDragging = useUIStore((s) => s.isDragging);
+  const { setNodeRef, isOver } = useDroppable({
+    id: `folder-${folder.id}`,
+    disabled: !isDragging,
+  });
   const [editingSettings, setEditingSettings] = useState(false);
 
-  const previewBooks = [books[0], books[1], books[2], books[3]];
+  const b0 = books[0];
+  const b1 = books[1];
+  const b2 = books[2];
+  const b3 = books[3];
 
   return (
     <>
       <div
         ref={setNodeRef}
-        onClick={onOpen}
+        onClick={() => onOpen(folder.id!)}
         onContextMenu={(e) => {
           e.preventDefault();
           setEditingSettings(true);
         }}
         title="Click to open folder, right-click to edit"
+        style={{
+          contentVisibility: "auto",
+          containIntrinsicSize: "240px",
+        }}
         className={cn(
           "group relative flex flex-col justify-between cursor-pointer rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/50 hover:bg-accent/20 shadow-xs select-none",
           isOver && "border-primary bg-primary/10 ring-2 ring-primary shadow-md scale-[1.02]",
@@ -73,13 +121,14 @@ export const FolderCard = memo(function FolderCard({
             )}
           >
             <div className="grid grid-cols-2 grid-rows-2 gap-1.5 h-full w-full">
-              {previewBooks.map((b, idx) => (
-                <MiniCoverSlot key={b?.id ?? `empty-${idx}`} book={b} />
-              ))}
+              <MiniCoverSlot key={b0?.id ?? "empty-0"} book={b0} />
+              <MiniCoverSlot key={b1?.id ?? "empty-1"} book={b1} />
+              <MiniCoverSlot key={b2?.id ?? "empty-2"} book={b2} />
+              <MiniCoverSlot key={b3?.id ?? "empty-3"} book={b3} />
             </div>
 
-            {/* Folder indicator badge */}
-            <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[10px] font-medium text-foreground backdrop-blur border border-border/60 shadow-xs">
+            {/* Folder indicator badge (clean solid background without expensive blur filter) */}
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-background/95 px-2 py-0.5 text-[10px] font-medium text-foreground border border-border/80 shadow-xs">
               <FolderIcon name={folder.icon} className="h-3 w-3 text-primary" />
               <span>{books.length}</span>
             </div>
@@ -108,4 +157,4 @@ export const FolderCard = memo(function FolderCard({
       )}
     </>
   );
-});
+}, areFolderCardPropsEqual);
