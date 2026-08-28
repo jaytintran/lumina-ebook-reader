@@ -95,6 +95,8 @@ export function EpubReaderView({
             {/* Clean Section Content */}
             <div
               className="epub-section-content text-left text-neutral-200 space-y-4 md:space-y-5 leading-[1.75] md:leading-[1.85] font-serif break-words max-w-full overflow-hidden
+                [&_*]:[text-decoration:none]
+                [&_u]:[text-decoration:underline]
                 [&_p]:text-left [&_p]:mb-4 md:[&_p]:mb-5 [&_p]:leading-[1.75] md:[&_p]:leading-[1.85] [&_p]:text-neutral-200
                 [&_h1]:text-left [&_h1]:font-sans [&_h1]:font-bold [&_h1]:text-xl md:[&_h1]:text-2xl [&_h1]:text-foreground [&_h1]:mt-6 md:[&_h1]:mt-8 [&_h1]:mb-3 md:[&_h1]:mb-4
                 [&_h2]:text-left [&_h2]:font-sans [&_h2]:font-bold [&_h2]:text-lg md:[&_h2]:text-xl [&_h2]:text-foreground [&_h2]:mt-5 md:[&_h2]:mt-6 [&_h2]:mb-2 md:[&_h2]:mb-3
@@ -104,7 +106,7 @@ export function EpubReaderView({
                 [&_table]:w-full [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:block [&_table]:my-4
                 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:bg-neutral-900/80
                 [&_code]:break-all
-                [&_a]:text-primary [&_a]:underline
+                [&_a[href]]:text-primary [&_a[href]]:underline [&_a:not([href])]:[text-decoration:none] [&_a:not([href])]:text-inherit
                 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4
                 [&_hr]:my-8 [&_hr]:border-border/60"
               dangerouslySetInnerHTML={{
