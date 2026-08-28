@@ -386,6 +386,13 @@ export function ReaderPage() {
         return;
       }
 
+      // Escape to exit reader back to library
+      if (e.key === "Escape") {
+        e.preventDefault();
+        navigate("/");
+        return;
+      }
+
       // Page / Section Navigation
       if (e.key === "ArrowLeft" || e.key === "PageUp" || (e.key === " " && e.shiftKey)) {
         e.preventDefault();

@@ -300,6 +300,21 @@ export function ReaderHeader({
           {rightPinned ? <PinOff className="h-3.5 w-3.5 hidden md:inline" /> : <StickyNote className="h-3.5 w-3.5" />}
           <span className="hidden md:inline">Notes & Info</span>
         </Button>
+
+        {/* Go Back to Library Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs h-8 px-2 sm:px-3 gap-1.5 text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:text-destructive"
+          onClick={onBack}
+          title="Exit Reader & Go Back to Library (Esc)"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Go Back to Library</span>
+          <kbd className="hidden lg:inline-flex items-center text-[10px] bg-muted/80 px-1.5 py-0.5 rounded border border-border/60 text-muted-foreground font-mono">
+            ESC
+          </kbd>
+        </Button>
       </div>
     </header>
   );
