@@ -294,27 +294,37 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex h-screen min-w-64 max-w-sm w-max shrink-0 flex-col border-r border-border bg-background transition-all duration-200">
-      <div className="flex items-center gap-3 px-4 py-4.5 whitespace-nowrap border-b border-border/40">
-        <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 via-indigo-500 to-purple-600 shadow-md shadow-indigo-500/20 shrink-0">
+      <div className="flex items-center gap-3 px-4 py-4 whitespace-nowrap border-b border-border/60">
+        <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 shrink-0 shadow-xs">
           <svg
-            className="h-5 w-5 text-white"
+            className="h-5 w-5"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
           >
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" fill="white" fillOpacity="0.2" />
-            <path d="M6 2v20" />
-            <path d="M12 7l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z" fill="white" stroke="none" />
+            {/* Open book pages */}
+            <path
+              d="M4 18.5C6.5 17 9.5 17 12 18.5C14.5 17 17.5 17 20 18.5V7C17.5 5.5 14.5 5.5 12 7C9.5 5.5 6.5 5.5 4 7V18.5Z"
+              fill="white"
+              fillOpacity="0.22"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path d="M12 7V18.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+            {/* Glowing gold reading star without white stroke */}
+            <path
+              d="M12 2L12.9 4.3L15.5 5L12.9 5.7L12 8L11.1 5.7L8.5 5L11.1 4.3L12 2Z"
+              fill="#fbbf24"
+              className="drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]"
+            />
           </svg>
         </div>
         <div className="flex flex-col">
-          <span className="text-base font-extrabold tracking-wider bg-gradient-to-r from-sky-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+          <span className="text-sm font-bold tracking-wider text-foreground">
             LUMINA
           </span>
-          <span className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground/80 -mt-1">
+          <span className="text-[10px] uppercase font-semibold tracking-widest text-primary/90 -mt-0.5">
             Ebook Reader
           </span>
         </div>
