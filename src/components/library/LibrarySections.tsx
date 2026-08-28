@@ -219,6 +219,26 @@ export function LibrarySections({
     };
   }, [activeFolder?.id, activeFolder?.name, scopeType, scopeId, setActiveFolderContext]);
 
+  // Escape key to exit folder view back to main library
+  useEffect(() => {
+    if (activeFolderId == null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const target = e.target as HTMLElement | null;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) {
+          return;
+        }
+        if (editingActiveFolder) {
+          return; // Let dialog handle its own close
+        }
+        e.preventDefault();
+        setActiveFolderId(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeFolderId, editingActiveFolder]);
+
   // --- FULL-PAGE FOLDER DRILL-DOWN VIEW ---
   if (activeFolder) {
     const activeBooks = grouped.get(activeFolder.id!) ?? [];

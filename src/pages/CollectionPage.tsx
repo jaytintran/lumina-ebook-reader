@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, Pencil, Trash2, X } from "lucide-react";
 import { LibrarySections } from "@/components/library/LibrarySections";
@@ -31,6 +31,26 @@ export function CollectionPage() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const searchQuery = useUIStore((s) => s.searchQuery).trim().toLowerCase();
+
+  // Escape key returns to main library (only when not inside a folder view)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const target = e.target as HTMLElement | null;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) {
+          return;
+        }
+        // If a folder view is open inside this collection, let LibrarySections handle Esc (closing the folder)
+        if (useUIStore.getState().activeFolderContext) {
+          return;
+        }
+        e.preventDefault();
+        navigate("/");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigate]);
 
   const viewBooks = searchQuery
     ? books.filter((b) => {
