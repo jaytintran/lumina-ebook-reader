@@ -1,19 +1,35 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
+  ArrowDownAZ,
+  ArrowDownWideNarrow,
   ArrowLeft,
+  ArrowUpDown,
+  ArrowUpNarrowWide,
+  Calendar,
   ChevronDown,
   ChevronRight,
   Eye,
   EyeOff,
   FolderPlus,
+  GripVertical,
   Settings2,
+  Star,
+  User,
 } from "lucide-react";
 import { useScopeBooks, useSettings } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { BookGrid } from "@/components/book/BookGrid";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
   FolderIcon,
@@ -21,6 +37,14 @@ import {
   FolderSettingsDialog,
 } from "@/components/folder/FolderPillStrip";
 import { FolderCard } from "@/components/folder/FolderCard";
+
+type SortField = "custom" | "dateAdded" | "title" | "author" | "rating";
+type SortOrder = "asc" | "desc";
+
+interface SortConfig {
+  field: SortField;
+  order: SortOrder;
+}
 
 function FolderSection({
   folder,
@@ -148,6 +172,7 @@ export function LibrarySections({
   const { data: settings } = useSettings();
   const { data } = useScopeBooks(baseBooks, scopeType, scopeId);
   const storageKey = `lumina-hide-grouped-${scopeType}-${scopeId}`;
+  const sortStorageKey = `lumina-sort-${scopeType}-${scopeId}`;
 
   const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
   const [editingActiveFolder, setEditingActiveFolder] = useState(false);
@@ -164,6 +189,16 @@ export function LibrarySections({
     }
   });
 
+  const [sortConfig, setSortConfig] = useState<SortConfig>(() => {
+    try {
+      const saved = localStorage.getItem(sortStorageKey);
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return { field: "custom", order: "desc" };
+  });
+
   useEffect(() => {
     try {
       setHideGrouped(localStorage.getItem(storageKey) === "true");
@@ -171,6 +206,52 @@ export function LibrarySections({
       setHideGrouped(false);
     }
   }, [storageKey]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(sortStorageKey);
+      if (saved) setSortConfig(JSON.parse(saved));
+      else setSortConfig({ field: "custom", order: "desc" });
+    } catch {
+      setSortConfig({ field: "custom", order: "desc" });
+    }
+  }, [sortStorageKey]);
+
+  const updateSort = (field: SortField, order?: SortOrder) => {
+    setSortConfig((prev) => {
+      let nextOrder = order;
+      if (!nextOrder) {
+        if (field === prev.field) {
+          nextOrder = prev.order === "asc" ? "desc" : "asc";
+        } else {
+          nextOrder = field === "title" || field === "author" ? "asc" : "desc";
+        }
+      }
+      const nextConfig: SortConfig = { field, order: nextOrder };
+      try {
+        localStorage.setItem(sortStorageKey, JSON.stringify(nextConfig));
+      } catch {
+        // ignore
+      }
+      return nextConfig;
+    });
+  };
+
+  const toggleSortOrder = () => {
+    if (sortConfig.field === "custom") return;
+    setSortConfig((prev) => {
+      const nextConfig: SortConfig = {
+        ...prev,
+        order: prev.order === "asc" ? "desc" : "asc",
+      };
+      try {
+        localStorage.setItem(sortStorageKey, JSON.stringify(nextConfig));
+      } catch {
+        // ignore
+      }
+      return nextConfig;
+    });
+  };
 
   useEffect(() => {
     setActiveFolderId(null);
@@ -190,7 +271,31 @@ export function LibrarySections({
 
   if (!data) return null;
   const { folders, grouped, ungrouped, allBooks } = data;
-  const displayedBooks = hideGrouped ? ungrouped : allBooks;
+  const rawDisplayedBooks = hideGrouped ? ungrouped : allBooks;
+
+  const displayedBooks = useMemo(() => {
+    if (sortConfig.field === "custom") {
+      return rawDisplayedBooks;
+    }
+    const list = [...rawDisplayedBooks];
+    const modifier = sortConfig.order === "asc" ? 1 : -1;
+
+    return list.sort((a, b) => {
+      if (sortConfig.field === "dateAdded") {
+        return ((a.dateAdded ?? 0) - (b.dateAdded ?? 0)) * modifier;
+      }
+      if (sortConfig.field === "title") {
+        return (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" }) * modifier;
+      }
+      if (sortConfig.field === "author") {
+        return (a.author || "").localeCompare(b.author || "", undefined, { sensitivity: "base" }) * modifier;
+      }
+      if (sortConfig.field === "rating") {
+        return ((a.rating ?? 0) - (b.rating ?? 0)) * modifier;
+      }
+      return 0;
+    });
+  }, [rawDisplayedBooks, sortConfig]);
   const headerTitle = hideGrouped
     ? "Ungrouped Books"
     : title || "All Books";
@@ -359,7 +464,7 @@ export function LibrarySections({
       {/* FLAT LIST BOOKS */}
       {(displayedBooks.length > 0 || hideGrouped) && baseBooks.length > 0 && (
         <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">{headerTitle}</h2>
               <span className="text-xs text-muted-foreground font-normal tabular-nums">
@@ -367,31 +472,174 @@ export function LibrarySections({
               </span>
             </div>
 
-            {folders.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleHideGrouped}
-                className={cn(
-                  "h-7 gap-1.5 px-2.5 text-xs font-medium transition-colors cursor-pointer",
-                  hideGrouped
-                    ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
-                    : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
-                )}
-                title={
-                  hideGrouped
-                    ? "Showing ungrouped books. Click to show all books."
-                    : "Showing all books. Click to hide books in folders."
-                }
-              >
-                {hideGrouped ? (
-                  <EyeOff className="h-3.5 w-3.5 text-primary" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )}
-                <span>Hide Grouped</span>
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {/* SORT PILL DROPDOWN */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "h-7 gap-1.5 px-2.5 text-xs font-medium transition-colors cursor-pointer",
+                        sortConfig.field !== "custom"
+                          ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+                      )}
+                      title="Sort books"
+                    >
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                      <span>
+                        Sort:{" "}
+                        {sortConfig.field === "custom"
+                          ? "Custom"
+                          : sortConfig.field === "dateAdded"
+                            ? "Date Added"
+                            : sortConfig.field === "title"
+                              ? "Title"
+                              : sortConfig.field === "author"
+                                ? "Author"
+                                : "Rating"}
+                      </span>
+                      {sortConfig.field !== "custom" && (
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">
+                          ({sortConfig.order})
+                        </span>
+                      )}
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    Sort By
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => updateSort("custom")}
+                    className="flex items-center justify-between text-xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Custom Order</span>
+                    </div>
+                    {sortConfig.field === "custom" && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => updateSort("dateAdded")}
+                    className="flex items-center justify-between text-xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Date Added</span>
+                    </div>
+                    {sortConfig.field === "dateAdded" && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => updateSort("title")}
+                    className="flex items-center justify-between text-xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ArrowDownAZ className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Title</span>
+                    </div>
+                    {sortConfig.field === "title" && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => updateSort("author")}
+                    className="flex items-center justify-between text-xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Author</span>
+                    </div>
+                    {sortConfig.field === "author" && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => updateSort("rating")}
+                    className="flex items-center justify-between text-xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Star className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Rating</span>
+                    </div>
+                    {sortConfig.field === "rating" && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </DropdownMenuItem>
+
+                  {sortConfig.field !== "custom" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        Order Direction
+                      </DropdownMenuLabel>
+                      <DropdownMenuItem
+                        onClick={() => updateSort(sortConfig.field, "asc")}
+                        className="flex items-center justify-between text-xs cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ArrowUpNarrowWide className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>Ascending (A → Z, Oldest, Low)</span>
+                        </div>
+                        {sortConfig.order === "asc" && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => updateSort(sortConfig.field, "desc")}
+                        className="flex items-center justify-between text-xs cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ArrowDownWideNarrow className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>Descending (Z → A, Newest, High)</span>
+                        </div>
+                        {sortConfig.order === "desc" && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        )}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* HIDE GROUPED TOGGLE */}
+              {folders.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleHideGrouped}
+                  className={cn(
+                    "h-7 gap-1.5 px-2.5 text-xs font-medium transition-colors cursor-pointer",
+                    hideGrouped
+                      ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+                  )}
+                  title={
+                    hideGrouped
+                      ? "Showing ungrouped books. Click to show all books."
+                      : "Showing all books. Click to hide books in folders."
+                  }
+                >
+                  {hideGrouped ? (
+                    <EyeOff className="h-3.5 w-3.5 text-primary" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                  <span>Hide Grouped</span>
+                </Button>
+              )}
+            </div>
           </div>
 
           {displayedBooks.length > 0 ? (
@@ -399,7 +647,7 @@ export function LibrarySections({
               books={displayedBooks}
               scopeType={scopeType}
               scopeId={scopeId}
-              sortable="global"
+              sortable={sortConfig.field === "custom" ? "global" : false}
             />
           ) : (
             <div className="rounded-lg border border-dashed border-border/70 py-6 text-center text-xs text-muted-foreground">
