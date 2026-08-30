@@ -94,7 +94,7 @@ export function EpubReaderView({
 
             {/* Clean Section Content */}
             <div
-              className="epub-section-content text-left text-neutral-200 space-y-4 md:space-y-5 leading-[1.75] md:leading-[1.85] font-serif break-words max-w-full overflow-hidden
+              className="epub-section-content text-left text-neutral-200 space-y-4 md:space-y-5 leading-[1.75] md:leading-[1.85] font-serif break-words max-w-full overflow-hidden select-text [&_*]:select-text
                 [&_*]:[text-decoration:none]
                 [&_u]:[text-decoration:underline]
                 [&_p]:text-left [&_p]:mb-4 md:[&_p]:mb-5 [&_p]:leading-[1.75] md:[&_p]:leading-[1.85] [&_p]:text-neutral-200

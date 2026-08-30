@@ -102,10 +102,6 @@ export function ReaderPage() {
   // Note form state
   const [newNote, setNewNote] = useState("");
 
-  // Highlight selection state
-  const [selectedText, setSelectedText] = useState("");
-  const [selectedColor, setSelectedColor] = useState("yellow");
-
   // Sync metadata form when book loaded
   useEffect(() => {
     if (book) {
@@ -274,6 +270,10 @@ export function ReaderPage() {
     }, 100);
   };
 
+  // Highlight selection state (only set when explicitly saving or editing a highlight in the sidebar)
+  const [activeHighlightText, setActiveHighlightText] = useState("");
+  const [selectedColor, setSelectedColor] = useState("yellow");
+
   // Floating selection menu & context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -289,7 +289,6 @@ export function ReaderPage() {
 
     if (text && text.length > 0) {
       e.preventDefault();
-      setSelectedText(text);
       setContextMenu({
         x: Math.min(e.clientX, window.innerWidth - 220),
         y: Math.min(e.clientY, window.innerHeight - 260),
@@ -307,17 +306,7 @@ export function ReaderPage() {
       const hlId = highlightEl.getAttribute("data-highlight-id");
       if (hlId) {
         handleHighlightClick(Number(hlId));
-        return;
       }
-    }
-
-    // Keep active selection tracked without stealing focus / opening the sidebar automatically
-    const sel = window.getSelection();
-    const text = sel?.toString().trim();
-    if (text && text.length > 0) {
-      setSelectedText(text);
-    } else if (!contextMenu) {
-      setSelectedText("");
     }
   };
 
@@ -333,11 +322,12 @@ export function ReaderPage() {
   }, []);
 
   const handleQuickHighlight = (color: string = "yellow") => {
-    if (!selectedText) return;
+    const selText = contextMenu?.text || window.getSelection()?.toString().trim();
+    if (!selText) return;
     const loc = book?.fileType === "pdf" ? pdfCurrentPage : epubSectionIdx + 1;
     addHighlight.mutate({
       bookId,
-      text: selectedText,
+      text: selText,
       color,
       pageOrLocation: loc,
     });
@@ -346,24 +336,27 @@ export function ReaderPage() {
   };
 
   const handleCopySelectedText = () => {
-    if (!selectedText) return;
-    navigator.clipboard.writeText(selectedText);
+    const selText = contextMenu?.text || window.getSelection()?.toString().trim();
+    if (!selText) return;
+    navigator.clipboard.writeText(selText);
     setCopiedNotification(true);
     setTimeout(() => setCopiedNotification(false), 2000);
     setContextMenu(null);
   };
 
   const handleAddSelectedToNotes = () => {
-    if (!selectedText) return;
-    setNewNote(`> "${selectedText}"\n\n`);
+    const selText = contextMenu?.text || window.getSelection()?.toString().trim();
+    if (!selText) return;
+    setNewNote(`> "${selText}"\n\n`);
     setRightTab("notes");
     setRightPinned(true);
     setContextMenu(null);
   };
 
   const handleSearchWeb = () => {
-    if (!selectedText) return;
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(selectedText)}`, "_blank", "noopener,noreferrer");
+    const selText = contextMenu?.text || window.getSelection()?.toString().trim();
+    if (!selText) return;
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(selText)}`, "_blank", "noopener,noreferrer");
     setContextMenu(null);
   };
 
@@ -396,15 +389,16 @@ export function ReaderPage() {
   };
 
   const handleSaveHighlight = () => {
-    if (!selectedText) return;
+    const textToSave = activeHighlightText || contextMenu?.text || window.getSelection()?.toString().trim();
+    if (!textToSave) return;
     const loc = book?.fileType === "pdf" ? pdfCurrentPage : epubSectionIdx + 1;
     addHighlight.mutate({
       bookId,
-      text: selectedText,
+      text: textToSave,
       color: selectedColor,
       pageOrLocation: loc,
     });
-    setSelectedText("");
+    setActiveHighlightText("");
   };
 
   const handleAddNote = (custom?: { title?: string; icon?: string; content?: string }) => {
@@ -779,7 +773,7 @@ export function ReaderPage() {
               if (window.innerWidth < 768) setRightPinned(false);
             }}
             highlights={highlights}
-            selectedText={selectedText}
+            selectedText={activeHighlightText}
             selectedColor={selectedColor}
             onSelectColor={setSelectedColor}
             onSaveHighlight={handleSaveHighlight}
