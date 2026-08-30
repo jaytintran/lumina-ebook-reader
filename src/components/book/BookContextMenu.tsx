@@ -17,6 +17,7 @@ import {
   useCollections,
   useDeleteBooks,
   useFolders,
+  useSettings,
   useUpdateBook,
 } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
@@ -50,6 +51,7 @@ export function BookContextMenu({
   const addToFolder = useAddBooksToFolder();
   const { data: collections = [] } = useCollections();
   const { data: folders = [] } = useFolders(scopeType ?? "none", scopeId ?? "none");
+  const { data: settings } = useSettings();
   const selected = useUIStore((s) => s.selectedIds.includes(book.id!));
   const toggleSelected = useUIStore((s) => s.toggleSelected);
 
@@ -59,7 +61,15 @@ export function BookContextMenu({
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onClick={() => navigate(`/reader/${book.id}`)}>
+        <ContextMenuItem
+          onClick={() => {
+            if (settings?.openInNewTab ?? true) {
+              window.open(`/reader/${book.id}`, "_blank", "noopener,noreferrer");
+            } else {
+              navigate(`/reader/${book.id}`);
+            }
+          }}
+        >
           <BookOpen /> Open
         </ContextMenuItem>
         <ContextMenuItem onClick={() => toggleSelected(book.id!)}>

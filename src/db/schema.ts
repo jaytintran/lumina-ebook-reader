@@ -104,6 +104,7 @@ export interface AppSettings {
   theme: "dark" | "light";
   viewMode: "grid" | "row";
   folderViewMode?: "sections" | "cards";
+  openInNewTab?: boolean;
   booksPerRow: number;
   showSubtitle: boolean;
   showAuthor: boolean;
@@ -119,6 +120,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
   viewMode: "grid",
   folderViewMode: "sections",
+  openInNewTab: true,
   booksPerRow: 4,
   showSubtitle: true,
   showAuthor: true,

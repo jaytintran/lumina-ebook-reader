@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
 import { saveFile } from "@/db/opfs";
-import { useUpdateBook } from "@/db/hooks";
+import { useSettings, useUpdateBook } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book, ReadingStatus } from "@/db/schema";
 import {
@@ -286,6 +286,7 @@ export function BookDetailsModal({
 }) {
   const navigate = useNavigate();
   const updateBook = useUpdateBook();
+  const { data: settings } = useSettings();
   const setIsEditingMetadata = useUIStore((s) => s.setIsEditingMetadata);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -363,7 +364,11 @@ export function BookDetailsModal({
 
   const handleOpenReader = () => {
     onClose();
-    navigate(`/reader/${book.id}`);
+    if (settings?.openInNewTab ?? true) {
+      window.open(`/reader/${book.id}`, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(`/reader/${book.id}`);
+    }
   };
 
   const handleSaveInlineDesc = async () => {

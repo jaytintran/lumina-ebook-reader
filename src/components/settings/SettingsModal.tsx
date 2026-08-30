@@ -369,6 +369,21 @@ export function SettingsModal() {
                     ]}
                   />
                 </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-foreground">Open Books In</span>
+                  <Segment
+                    value={settings.openInNewTab ? "tab" : "same"}
+                    onChange={(val) => updateSettings.mutate({ openInNewTab: val === "tab" })}
+                    options={[
+                      { value: "tab", label: "New Tab" },
+                      { value: "same", label: "Same Tab" },
+                    ]}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Keep your library view open while reading in another tab.
+                  </p>
+                </div>
               </div>
 
               {/* Right Column: Book Preview Shows */}

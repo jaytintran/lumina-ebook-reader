@@ -4,6 +4,13 @@ import * as pdfjs from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 
+import {
+  Check,
+  Copy,
+  Globe,
+  Highlighter,
+  StickyNote,
+} from "lucide-react";
 import { readFile } from "@/db/opfs";
 import {
   useAddBookmark,
@@ -111,6 +118,25 @@ export function ReaderPage() {
       setMetaDesc(book.description ?? "");
     }
   }, [book]);
+
+  // Set browser tab title to book title
+  useEffect(() => {
+    if (book?.title) {
+      document.title = `${book.title} — Lumina`;
+    }
+    return () => {
+      document.title = "LUMINA — Ebook Reader";
+    };
+  }, [book?.title]);
+
+  const handleExitReader = () => {
+    // If opened in a new tab/window, attempt to close the tab; fallback to navigate
+    if (window.opener && window.history.length <= 2) {
+      window.close();
+    } else {
+      navigate("/");
+    }
+  };
 
   // Load book file from OPFS
   useEffect(() => {
@@ -243,6 +269,32 @@ export function ReaderPage() {
     }, 100);
   };
 
+  // Floating selection menu & context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    text: string;
+  } | null>(null);
+
+  const [copiedNotification, setCopiedNotification] = useState(false);
+
+  const handleSelectionContextMenu = (e: React.MouseEvent) => {
+    const sel = window.getSelection();
+    const text = sel?.toString().trim();
+
+    if (text && text.length > 0) {
+      e.preventDefault();
+      setSelectedText(text);
+      setContextMenu({
+        x: Math.min(e.clientX, window.innerWidth - 220),
+        y: Math.min(e.clientY, window.innerHeight - 260),
+        text,
+      });
+    } else {
+      setContextMenu(null);
+    }
+  };
+
   const handleMouseUp = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement | null;
     const highlightEl = target?.closest(".lumina-highlight");
@@ -254,12 +306,60 @@ export function ReaderPage() {
       }
     }
 
-    const text = window.getSelection()?.toString().trim();
-    if (text && text.length > 1) {
+    // Keep active selection tracked without stealing focus / opening the sidebar automatically
+    const sel = window.getSelection();
+    const text = sel?.toString().trim();
+    if (text && text.length > 0) {
       setSelectedText(text);
-      setRightTab("highlights");
-      setRightPinned(true);
+    } else if (!contextMenu) {
+      setSelectedText("");
     }
+  };
+
+  // Close context menu on global clicks
+  useEffect(() => {
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, []);
+
+  const handleQuickHighlight = (color: string = "yellow") => {
+    if (!selectedText) return;
+    const loc = book?.fileType === "pdf" ? pdfCurrentPage : epubSectionIdx + 1;
+    addHighlight.mutate({
+      bookId,
+      text: selectedText,
+      color,
+      pageOrLocation: loc,
+    });
+    setContextMenu(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const handleCopySelectedText = () => {
+    if (!selectedText) return;
+    navigator.clipboard.writeText(selectedText);
+    setCopiedNotification(true);
+    setTimeout(() => setCopiedNotification(false), 2000);
+    setContextMenu(null);
+  };
+
+  const handleAddSelectedToNotes = () => {
+    if (!selectedText) return;
+    setNewNote(`> "${selectedText}"\n\n`);
+    setRightTab("notes");
+    setRightPinned(true);
+    setContextMenu(null);
+  };
+
+  const handleSearchWeb = () => {
+    if (!selectedText) return;
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(selectedText)}`, "_blank", "noopener,noreferrer");
+    setContextMenu(null);
   };
 
   const handleSaveMetadata = async () => {
@@ -389,7 +489,7 @@ export function ReaderPage() {
       // Escape to exit reader back to library
       if (e.key === "Escape") {
         e.preventDefault();
-        navigate("/");
+        handleExitReader();
         return;
       }
 
@@ -465,7 +565,7 @@ export function ReaderPage() {
       {/* Header */}
       <ReaderHeader
         book={book}
-        onBack={() => navigate("/")}
+        onBack={handleExitReader}
         pdfCurrentPage={pdfCurrentPage}
         pdfNumPages={pdfNumPages}
         pdfScale={pdfScale}
@@ -531,14 +631,15 @@ export function ReaderPage() {
         <main
           ref={centerScrollRef}
           onMouseUp={handleMouseUp}
-          className="flex-1 overflow-auto bg-neutral-950 flex flex-col items-center justify-start p-2 sm:p-4 md:p-8 w-full"
+          onContextMenu={handleSelectionContextMenu}
+          className="flex-1 overflow-auto bg-neutral-950 flex flex-col items-center justify-start p-2 sm:p-4 md:p-8 w-full relative select-text"
         >
           {loadingDoc ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground animate-pulse">
               Rendering document...
             </div>
           ) : book.fileType === "pdf" && pdfDoc ? (
-            <div className="flex flex-col items-center pb-16 w-full max-w-full overflow-x-auto">
+            <div className="flex flex-col items-center pb-16 w-full max-w-full overflow-x-auto select-text">
               {Array.from({ length: pdfNumPages }).map((_, idx) => (
                 <PdfPageItem
                   key={idx + 1}
@@ -575,6 +676,77 @@ export function ReaderPage() {
                 }}
               />
             )
+          )}
+
+          {/* Floating Right-Click Selection Menu */}
+          {contextMenu && (
+            <div
+              style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+              className="fixed z-50 flex flex-col gap-1 rounded-xl border border-border/80 bg-popover/95 p-1.5 shadow-2xl backdrop-blur-md min-w-[200px] animate-in fade-in zoom-in-95 duration-100 select-none text-popover-foreground"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Quick Highlight Color Palette */}
+              <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-muted-foreground border-b border-border/50 mb-0.5">
+                <span className="flex items-center gap-1.5">
+                  <Highlighter className="h-3.5 w-3.5 text-primary" /> Highlight
+                </span>
+                <div className="flex items-center gap-1">
+                  {[
+                    { name: "yellow", bg: "bg-yellow-400" },
+                    { name: "green", bg: "bg-green-400" },
+                    { name: "blue", bg: "bg-blue-400" },
+                    { name: "purple", bg: "bg-purple-400" },
+                    { name: "pink", bg: "bg-pink-400" },
+                  ].map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => handleQuickHighlight(c.name)}
+                      className={`h-4 w-4 rounded-full ${c.bg} hover:scale-125 transition-transform shadow-xs cursor-pointer`}
+                      title={`Highlight in ${c.name}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Copy Selected Text */}
+              <button
+                type="button"
+                onClick={handleCopySelectedText}
+                className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left"
+              >
+                <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Copy Text</span>
+              </button>
+
+              {/* Add to Notes */}
+              <button
+                type="button"
+                onClick={handleAddSelectedToNotes}
+                className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left"
+              >
+                <StickyNote className="h-3.5 w-3.5 text-amber-400" />
+                <span>Add Quote to Notes</span>
+              </button>
+
+              {/* Web Lookup */}
+              <button
+                type="button"
+                onClick={handleSearchWeb}
+                className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left"
+              >
+                <Globe className="h-3.5 w-3.5 text-sky-400" />
+                <span>Search the Web</span>
+              </button>
+            </div>
+          )}
+
+          {/* Copied Toast */}
+          {copiedNotification && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xl animate-in fade-in slide-in-from-bottom-2">
+              <Check className="h-3.5 w-3.5" />
+              <span>Copied to clipboard</span>
+            </div>
           )}
         </main>
 

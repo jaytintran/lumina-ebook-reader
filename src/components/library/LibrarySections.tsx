@@ -237,22 +237,6 @@ export function LibrarySections({
     });
   };
 
-  const toggleSortOrder = () => {
-    if (sortConfig.field === "custom") return;
-    setSortConfig((prev) => {
-      const nextConfig: SortConfig = {
-        ...prev,
-        order: prev.order === "asc" ? "desc" : "asc",
-      };
-      try {
-        localStorage.setItem(sortStorageKey, JSON.stringify(nextConfig));
-      } catch {
-        // ignore
-      }
-      return nextConfig;
-    });
-  };
-
   useEffect(() => {
     setActiveFolderId(null);
   }, [scopeType, scopeId]);
@@ -647,7 +631,7 @@ export function LibrarySections({
               books={displayedBooks}
               scopeType={scopeType}
               scopeId={scopeId}
-              sortable={sortConfig.field === "custom" ? "global" : false}
+              sortable={sortConfig.field === "custom" ? "global" : undefined}
             />
           ) : (
             <div className="rounded-lg border border-dashed border-border/70 py-6 text-center text-xs text-muted-foreground">

@@ -84,7 +84,11 @@ export const BookCard = memo(function BookCard({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/reader/${book.id}`);
+    if (settings?.openInNewTab ?? true) {
+      window.open(`/reader/${book.id}`, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(`/reader/${book.id}`);
+    }
   };
 
   return (
