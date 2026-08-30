@@ -82,7 +82,7 @@ export interface Highlight {
 
 export interface Note {
   id?: number;
-  bookId: number;
+  bookId?: number;
   title?: string;
   icon?: string;
   content: string;

@@ -16,10 +16,11 @@ interface NoteModalProps {
   note: Note | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { title: string; icon: string; content: string }) => void;
+  onSave: (data: { title: string; icon: string; content: string; bookId?: number }) => void;
   onDelete: (id: number) => void;
   onJumpToLocation?: (loc: number | string) => void;
   bookFileType?: "pdf" | "epub";
+  bookTitle?: string;
 }
 
 export function NoteModal({
@@ -30,6 +31,7 @@ export function NoteModal({
   onDelete,
   onJumpToLocation,
   bookFileType = "pdf",
+  bookTitle,
 }: NoteModalProps) {
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState("📝");
@@ -121,6 +123,13 @@ export function NoteModal({
                 </span>
                 <ExternalLink className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100 transition-opacity" />
               </button>
+            )}
+
+            {bookTitle && !note.pageOrLocation && (
+              <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground max-w-[200px] truncate">
+                <BookOpen className="h-3 w-3 text-primary shrink-0" />
+                <span className="truncate">{bookTitle}</span>
+              </div>
             )}
 
             {lastSaved && (

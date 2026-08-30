@@ -15,6 +15,7 @@ import {
   GripVertical,
   Trash2,
   Check,
+  StickyNote,
 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import {
@@ -46,6 +47,7 @@ const primaryNav = [
   { to: "/currently-reading", label: "Currently Reading", icon: BookOpen, dropId: "sidebar-nav-reading" },
   { to: "/wanna-read", label: "Wanna Read", icon: Bookmark, dropId: "sidebar-nav-wanna-read" },
   { to: "/finished", label: "Finished", icon: CheckCircle2, dropId: "sidebar-nav-finished" },
+  { to: "/notes", label: "Notes", icon: StickyNote },
 ];
 
 const smartViews = [

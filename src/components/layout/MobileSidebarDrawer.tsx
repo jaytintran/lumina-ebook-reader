@@ -10,6 +10,7 @@ import {
   Plus,
   X,
   Settings,
+  StickyNote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCollections, useSaveCollections } from "@/db/hooks";
@@ -27,6 +28,7 @@ const smartViews = [
 const secondaryNav = [
   { to: "/wanna-read", label: "Wanna Read", icon: Bookmark },
   { to: "/finished", label: "Finished", icon: CheckCircle2 },
+  { to: "/notes", label: "Notes & Knowledge", icon: StickyNote },
 ];
 
 export function MobileSidebarDrawer() {

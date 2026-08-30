@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { HomePage } from "@/pages/HomePage";
 import { CollectionPage } from "@/pages/CollectionPage";
 import { SmartViewPage } from "@/pages/SmartViewPage";
+import { NotesPage } from "@/pages/NotesPage";
 import { ReaderPage } from "@/pages/ReaderPage";
 
 export const router = createBrowserRouter([
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       },
       { path: "/wanna-read", element: <HomePage viewLabel="Wanna Read" /> },
       { path: "/finished", element: <HomePage viewLabel="Finished" /> },
+      { path: "/notes", element: <NotesPage /> },
       { path: "/collections/:id", element: <CollectionPage /> },
       { path: "/authors", element: <SmartViewPage viewLabel="Authors" /> },
       {

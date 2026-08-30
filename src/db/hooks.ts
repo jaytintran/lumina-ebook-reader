@@ -449,6 +449,13 @@ export function useDeleteHighlight() {
   });
 }
 
+export function useAllNotes() {
+  return useQuery({
+    queryKey: ["allNotes"],
+    queryFn: () => db.notes.orderBy("updatedAt").reverse().toArray(),
+  });
+}
+
 export function useNotes(bookId?: number) {
   return useQuery({
     queryKey: keys.notes(bookId!),
@@ -459,9 +466,10 @@ export function useNotes(bookId?: number) {
 
 export function useAddNote() {
   const invalidate = useInvalidate();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
-      bookId: number;
+      bookId?: number;
       title?: string;
       icon?: string;
       content: string;
@@ -472,12 +480,18 @@ export function useAddNote() {
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }),
-    onSuccess: (_res, { bookId }) => invalidate([keys.notes(bookId)]),
+    onSuccess: (_res, vars) => {
+      if (vars.bookId != null) {
+        invalidate([keys.notes(vars.bookId)]);
+      }
+      qc.invalidateQueries({ queryKey: ["allNotes"] });
+    },
   });
 }
 
 export function useUpdateNote() {
   const invalidate = useInvalidate();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
       id,
@@ -485,28 +499,40 @@ export function useUpdateNote() {
       patch,
     }: {
       id: number;
-      bookId: number;
+      bookId?: number;
       patch: {
         title?: string;
         icon?: string;
         content?: string;
         pageOrLocation?: number | string;
+        bookId?: number;
       };
     }) =>
       db.notes.update(id, {
         ...patch,
         updatedAt: Date.now(),
       }),
-    onSuccess: (_res, { bookId }) => invalidate([keys.notes(bookId)]),
+    onSuccess: (_res, vars) => {
+      if (vars.bookId != null) {
+        invalidate([keys.notes(vars.bookId)]);
+      }
+      qc.invalidateQueries({ queryKey: ["allNotes"] });
+    },
   });
 }
 
 export function useDeleteNote() {
   const invalidate = useInvalidate();
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }: { id: number; bookId: number }) =>
+    mutationFn: ({ id, bookId: _bookId }: { id: number; bookId?: number }) =>
       db.notes.delete(id),
-    onSuccess: (_res, { bookId }) => invalidate([keys.notes(bookId)]),
+    onSuccess: (_res, vars) => {
+      if (vars.bookId != null) {
+        invalidate([keys.notes(vars.bookId)]);
+      }
+      qc.invalidateQueries({ queryKey: ["allNotes"] });
+    },
   });
 }
 

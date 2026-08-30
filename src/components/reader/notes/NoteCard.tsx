@@ -6,6 +6,7 @@ interface NoteCardProps {
   onClick: () => void;
   onDelete: (id: number) => void;
   bookFileType?: "pdf" | "epub";
+  bookTitle?: string;
 }
 
 function formatRelativeTime(timestamp: number) {
@@ -33,17 +34,17 @@ function cleanMarkdownSnippet(text: string) {
     .trim();
 }
 
-export function NoteCard({ note, onClick, onDelete, bookFileType = "pdf" }: NoteCardProps) {
+export function NoteCard({ note, onClick, onDelete, bookFileType = "pdf", bookTitle }: NoteCardProps) {
   const displayTitle = note.title?.trim() || cleanMarkdownSnippet(note.content).slice(0, 35) || "Untitled Note";
   const snippet = cleanMarkdownSnippet(note.content);
 
   return (
     <div
       onClick={onClick}
-      className="group relative flex items-start gap-3 rounded-xl border border-border bg-background p-3 text-xs transition-all duration-150 hover:border-primary/50 hover:bg-muted/40 cursor-pointer shadow-sm hover:shadow-md"
+      className="group relative flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 text-xs transition-all duration-150 hover:border-primary/50 hover:bg-muted/40 cursor-pointer shadow-sm hover:shadow-md"
     >
       {/* Icon Badge */}
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-base shadow-xs group-hover:scale-105 transition-transform">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg shadow-xs group-hover:scale-105 transition-transform">
         {note.icon || "📝"}
       </div>
 
@@ -62,13 +63,18 @@ export function NoteCard({ note, onClick, onDelete, bookFileType = "pdf" }: Note
           {snippet}
         </p>
 
-        {note.pageOrLocation && (
-          <div className="flex items-center gap-1.5 pt-1">
-            <span className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {bookTitle && (
+            <span className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary border border-primary/20 max-w-[160px] truncate">
+              📖 {bookTitle}
+            </span>
+          )}
+          {note.pageOrLocation && (
+            <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {bookFileType === "pdf" ? `p. ${note.pageOrLocation}` : `Sec. ${note.pageOrLocation}`}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Hover Delete Action */}
