@@ -174,12 +174,45 @@ export function LibrarySections({
   const storageKey = `lumina-hide-grouped-${scopeType}-${scopeId}`;
   const sortStorageKey = `lumina-sort-${scopeType}-${scopeId}`;
 
-  const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
+  const activeFolderIdStorageKey = `lumina-active-folder-${scopeType}-${scopeId}`;
+  const [activeFolderId, setActiveFolderId] = useState<number | null>(() => {
+    try {
+      const saved = sessionStorage.getItem(activeFolderIdStorageKey);
+      return saved ? Number(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [editingActiveFolder, setEditingActiveFolder] = useState(false);
+  const setLastLibraryLocation = useUIStore((s) => s.setLastLibraryLocation);
 
   const handleOpenFolder = useCallback((folderId: number) => {
     setActiveFolderId(folderId);
-  }, []);
+    try {
+      sessionStorage.setItem(activeFolderIdStorageKey, String(folderId));
+    } catch {
+      // ignore
+    }
+  }, [activeFolderIdStorageKey]);
+
+  const handleCloseFolder = useCallback(() => {
+    setActiveFolderId(null);
+    try {
+      sessionStorage.removeItem(activeFolderIdStorageKey);
+    } catch {
+      // ignore
+    }
+  }, [activeFolderIdStorageKey]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setLastLibraryLocation({
+        pathname: window.location.pathname,
+        search: window.location.search,
+        folderId: activeFolderId,
+      });
+    }
+  }, [scopeType, scopeId, activeFolderId, setLastLibraryLocation]);
 
   const [hideGrouped, setHideGrouped] = useState<boolean>(() => {
     try {
@@ -340,7 +373,7 @@ export function LibrarySections({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setActiveFolderId(null)}
+              onClick={handleCloseFolder}
               className="h-8 gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
             >
               <ArrowLeft className="h-3.5 w-3.5" />

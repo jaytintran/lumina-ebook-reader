@@ -23,6 +23,8 @@ export const useUIStore = create<{
   setIsDragging: (dragging: boolean) => void;
   activeFolderContext: ActiveFolderContext | null;
   setActiveFolderContext: (ctx: ActiveFolderContext | null) => void;
+  lastLibraryLocation: { pathname: string; search?: string; folderId?: number | null } | null;
+  setLastLibraryLocation: (loc: { pathname: string; search?: string; folderId?: number | null } | null) => void;
 }>((set) => ({
   settingsOpen: false,
   setSettingsOpen: (open) => set({ settingsOpen: open }),
@@ -44,4 +46,6 @@ export const useUIStore = create<{
   setIsDragging: (dragging) => set({ isDragging: dragging }),
   activeFolderContext: null,
   setActiveFolderContext: (ctx) => set({ activeFolderContext: ctx }),
+  lastLibraryLocation: null,
+  setLastLibraryLocation: (loc) => set({ lastLibraryLocation: loc }),
 }));

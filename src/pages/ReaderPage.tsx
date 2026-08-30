@@ -28,6 +28,7 @@ import {
   useUpdateBook,
   useUpdateNote,
 } from "@/db/hooks";
+import { useUIStore } from "@/stores/uiStore";
 import { parseFullEpub, type ParsedEpubContent } from "@/lib/importer";
 import {
   EpubReaderView,
@@ -129,10 +130,14 @@ export function ReaderPage() {
     };
   }, [book?.title]);
 
+  const lastLibraryLocation = useUIStore((s) => s.lastLibraryLocation);
+
   const handleExitReader = () => {
-    // If opened in a new tab/window, attempt to close the tab; fallback to navigate
-    if (window.opener && window.history.length <= 2) {
-      window.close();
+    // If we have history in React Router, navigate back
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else if (lastLibraryLocation) {
+      navigate(lastLibraryLocation.pathname + (lastLibraryLocation.search || ""));
     } else {
       navigate("/");
     }

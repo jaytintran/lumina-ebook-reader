@@ -84,11 +84,7 @@ export const BookRow = memo(function BookRow({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (settings?.openInNewTab ?? true) {
-      window.open(`/reader/${book.id}`, "_blank", "noopener,noreferrer");
-    } else {
-      navigate(`/reader/${book.id}`);
-    }
+    navigate(`/reader/${book.id}`);
   };
 
   return (
