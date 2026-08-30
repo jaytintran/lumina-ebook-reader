@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
@@ -174,8 +175,15 @@ export function LibrarySections({
   const storageKey = `lumina-hide-grouped-${scopeType}-${scopeId}`;
   const sortStorageKey = `lumina-sort-${scopeType}-${scopeId}`;
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeFolderIdStorageKey = `lumina-active-folder-${scopeType}-${scopeId}`;
+  
+  // Initialize from search param first, then sessionStorage
   const [activeFolderId, setActiveFolderId] = useState<number | null>(() => {
+    const paramFolder = searchParams.get("folder");
+    if (paramFolder && !Number.isNaN(Number(paramFolder))) {
+      return Number(paramFolder);
+    }
     try {
       const saved = sessionStorage.getItem(activeFolderIdStorageKey);
       return saved ? Number(saved) : null;
@@ -183,32 +191,79 @@ export function LibrarySections({
       return null;
     }
   });
+
   const [editingActiveFolder, setEditingActiveFolder] = useState(false);
   const setLastLibraryLocation = useUIStore((s) => s.setLastLibraryLocation);
 
   const handleOpenFolder = useCallback((folderId: number) => {
     setActiveFolderId(folderId);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("folder", String(folderId));
+        return next;
+      },
+      { replace: false },
+    );
     try {
       sessionStorage.setItem(activeFolderIdStorageKey, String(folderId));
     } catch {
       // ignore
     }
-  }, [activeFolderIdStorageKey]);
+  }, [activeFolderIdStorageKey, setSearchParams]);
 
   const handleCloseFolder = useCallback(() => {
     setActiveFolderId(null);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("folder");
+        return next;
+      },
+      { replace: true },
+    );
     try {
       sessionStorage.removeItem(activeFolderIdStorageKey);
     } catch {
       // ignore
     }
-  }, [activeFolderIdStorageKey]);
+  }, [activeFolderIdStorageKey, setSearchParams]);
+
+  // Sync state if URL query param changes (e.g. popstate / browser back)
+  useEffect(() => {
+    const paramFolder = searchParams.get("folder");
+    if (paramFolder && !Number.isNaN(Number(paramFolder))) {
+      const fid = Number(paramFolder);
+      setActiveFolderId(fid);
+      try {
+        sessionStorage.setItem(activeFolderIdStorageKey, String(fid));
+      } catch {
+        // ignore
+      }
+    } else if (!paramFolder) {
+      // Check session storage fallback
+      try {
+        const saved = sessionStorage.getItem(activeFolderIdStorageKey);
+        if (saved) {
+          setActiveFolderId(Number(saved));
+        } else {
+          setActiveFolderId(null);
+        }
+      } catch {
+        setActiveFolderId(null);
+      }
+    }
+  }, [searchParams, activeFolderIdStorageKey]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const currentUrl = new URL(window.location.href);
+      if (activeFolderId != null) {
+        currentUrl.searchParams.set("folder", String(activeFolderId));
+      }
       setLastLibraryLocation({
-        pathname: window.location.pathname,
-        search: window.location.search,
+        pathname: currentUrl.pathname,
+        search: currentUrl.search,
         folderId: activeFolderId,
       });
     }
@@ -271,8 +326,13 @@ export function LibrarySections({
   };
 
   useEffect(() => {
-    setActiveFolderId(null);
-  }, [scopeType, scopeId]);
+    try {
+      const saved = sessionStorage.getItem(activeFolderIdStorageKey);
+      setActiveFolderId(saved ? Number(saved) : null);
+    } catch {
+      setActiveFolderId(null);
+    }
+  }, [activeFolderIdStorageKey]);
 
   const toggleHideGrouped = () => {
     setHideGrouped((prev) => {
