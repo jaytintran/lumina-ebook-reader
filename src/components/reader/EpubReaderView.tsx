@@ -34,13 +34,69 @@ export function EpubReaderView({
   epubFontSize,
   highlights = [],
   onVisibleSection,
+  activeSpokenSentence,
+  syncHighlight = true,
 }: {
   epubDoc: ParsedEpubContent;
   epubFontSize: number;
   highlights?: Array<{ id?: number; text: string; color: string; pageOrLocation: number | string }>;
   onVisibleSection?: (sectionIdx: number) => void;
+  activeSpokenSentence?: { text: string; sectionOrPage: number; index: number } | null;
+  syncHighlight?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Live highlight active spoken sentence inside EPUB DOM
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Clear previous live audio highlight marks
+    const prevMarks = containerRef.current.querySelectorAll("mark.lumina-audio-active");
+    prevMarks.forEach((m) => {
+      const parent = m.parentNode;
+      if (parent) {
+        while (m.firstChild) parent.insertBefore(m.firstChild, m);
+        parent.removeChild(m);
+      }
+    });
+
+    if (!syncHighlight || !activeSpokenSentence || !activeSpokenSentence.text) return;
+
+    const secEl = containerRef.current.querySelector(
+      `#epub-sec-${activeSpokenSentence.sectionOrPage}`
+    );
+    if (!secEl) return;
+
+    const queryText = activeSpokenSentence.text.trim();
+    if (queryText.length < 3) return;
+
+    // Search text nodes inside section
+    const treeWalker = document.createTreeWalker(secEl, NodeFilter.SHOW_TEXT);
+    let currentNode: Node | null = treeWalker.nextNode();
+
+    while (currentNode) {
+      const content = currentNode.nodeValue || "";
+      const idx = content.toLowerCase().indexOf(queryText.toLowerCase().slice(0, Math.min(queryText.length, 30)));
+      if (idx !== -1 && currentNode.parentNode) {
+        const range = document.createRange();
+        range.setStart(currentNode, idx);
+        range.setEnd(currentNode, Math.min(content.length, idx + queryText.length));
+
+        const mark = document.createElement("mark");
+        mark.className = "lumina-audio-active bg-amber-400/30 text-inherit rounded px-1 py-0.5 border-b-2 border-amber-400 transition-colors duration-150";
+
+        try {
+          range.surroundContents(mark);
+          // Scroll into view smoothly
+          mark.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch {
+          // ignore potential DOM boundary split collisions
+        }
+        break;
+      }
+      currentNode = treeWalker.nextNode();
+    }
+  }, [activeSpokenSentence, syncHighlight]);
 
   // Track currently visible section on scroll
   useEffect(() => {

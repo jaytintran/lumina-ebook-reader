@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Headphones,
   Maximize2,
   Menu,
   Minus,
@@ -23,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import type { ParsedEpubContent } from "@/lib/importer";
 
 interface ReaderHeaderProps {
@@ -56,6 +58,10 @@ interface ReaderHeaderProps {
   rightPinned: boolean;
   onToggleLeftPinned: () => void;
   onToggleRightPinned: () => void;
+  // Audio Narration
+  isAudioOpen?: boolean;
+  isAudioPlaying?: boolean;
+  onToggleAudio?: () => void;
 }
 
 export function ReaderHeader({
@@ -82,6 +88,9 @@ export function ReaderHeader({
   rightPinned,
   onToggleLeftPinned,
   onToggleRightPinned,
+  isAudioOpen,
+  isAudioPlaying,
+  onToggleAudio,
 }: ReaderHeaderProps) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card/90 px-2 sm:px-4 backdrop-blur z-20 gap-2">
@@ -276,6 +285,25 @@ export function ReaderHeader({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {/* Audiobook Narration Button */}
+        {onToggleAudio && (
+          <Button
+            variant={isAudioOpen ? "secondary" : "ghost"}
+            size="sm"
+            className={cn(
+              "text-xs h-8 px-2 sm:px-3 gap-1.5 cursor-pointer",
+              isAudioOpen && "bg-primary/20 text-primary border border-primary/30"
+            )}
+            onClick={onToggleAudio}
+            title="Audiobook Narration"
+          >
+            <Headphones className={cn("h-3.5 w-3.5", isAudioPlaying && "animate-pulse text-primary")} />
+            <span className="hidden sm:inline">
+              {isAudioPlaying ? "Listening..." : "Listen"}
+            </span>
+          </Button>
+        )}
 
         {/* TOC Button */}
         <Button

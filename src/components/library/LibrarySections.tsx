@@ -14,9 +14,11 @@ import {
   EyeOff,
   FolderPlus,
   GripVertical,
+  Search,
   Settings2,
   Star,
   User,
+  X,
 } from "lucide-react";
 import { useScopeBooks, useSettings } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
@@ -420,6 +422,219 @@ export function LibrarySections({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeFolderId, editingActiveFolder]);
+
+  const searchQuery = useUIStore((s) => s.searchQuery).trim();
+  const setSearchQuery = useUIStore((s) => s.setSearchQuery);
+  const isSearching = searchQuery.length > 0;
+
+  // --- SEARCH RESULTS VIEW (CLEAN FLAT LIST WITHOUT FOLDER FRAGMENTATION) ---
+  if (isSearching) {
+    return (
+      <div className="flex flex-col gap-6 select-text">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/70">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary border border-primary/20 shadow-xs">
+              <Search className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">
+                Search Results
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {displayedBooks.length} {displayedBooks.length === 1 ? "book found" : "books found"} matching &ldquo;{searchQuery}&rdquo;
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Sort Pill */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-8 gap-1.5 px-2.5 text-xs font-medium transition-colors cursor-pointer",
+                      sortConfig.field !== "custom"
+                        ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+                    )}
+                    title="Sort search results"
+                  >
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    <span>
+                      Sort:{" "}
+                      {sortConfig.field === "custom"
+                        ? "Default"
+                        : sortConfig.field === "dateAdded"
+                          ? "Date Added"
+                          : sortConfig.field === "title"
+                            ? "Title"
+                            : sortConfig.field === "author"
+                              ? "Author"
+                              : "Rating"}
+                    </span>
+                    {sortConfig.field !== "custom" && (
+                      <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">
+                        ({sortConfig.order})
+                      </span>
+                    )}
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  Sort By
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => updateSort("custom")}
+                  className="flex items-center justify-between text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Default Match</span>
+                  </div>
+                  {sortConfig.field === "custom" && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => updateSort("title")}
+                  className="flex items-center justify-between text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <ArrowDownAZ className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Title</span>
+                  </div>
+                  {sortConfig.field === "title" && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => updateSort("author")}
+                  className="flex items-center justify-between text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Author</span>
+                  </div>
+                  {sortConfig.field === "author" && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => updateSort("dateAdded")}
+                  className="flex items-center justify-between text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Date Added</span>
+                  </div>
+                  {sortConfig.field === "dateAdded" && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => updateSort("rating")}
+                  className="flex items-center justify-between text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Star className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Rating</span>
+                  </div>
+                  {sortConfig.field === "rating" && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
+                </DropdownMenuItem>
+
+                {sortConfig.field !== "custom" && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      Order Direction
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onClick={() => updateSort(sortConfig.field, "asc")}
+                      className="flex items-center justify-between text-xs cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ArrowUpNarrowWide className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Ascending (A → Z, Oldest, Low)</span>
+                      </div>
+                      {sortConfig.order === "asc" && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => updateSort(sortConfig.field, "desc")}
+                      className="flex items-center justify-between text-xs cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ArrowDownWideNarrow className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Descending (Z → A, Newest, High)</span>
+                      </div>
+                      {sortConfig.order === "desc" && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      )}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Clear Search Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery("")}
+              className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Clear Search</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Results Grid - Drag & Drop Disabled */}
+        {displayedBooks.length > 0 ? (
+          <BookGrid
+            books={displayedBooks}
+            scopeType={scopeType}
+            scopeId={scopeId}
+            sortable={undefined}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/80 bg-card/30 py-16 px-4 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-3 shadow-xs">
+              <Search className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">
+              No books found
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+              We couldn&apos;t find any books matching &ldquo;{searchQuery}&rdquo; in this view.
+            </p>
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchQuery("")}
+                className="gap-1.5 text-xs font-semibold cursor-pointer shadow-xs"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>Reset Search</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // --- FULL-PAGE FOLDER DRILL-DOWN VIEW ---
   if (activeFolder) {
