@@ -490,6 +490,9 @@ export function LibrarySections({
   const setSearchQuery = useUIStore((s) => s.setSearchQuery);
   const isSearching = searchQuery.length > 0;
 
+  // Query pinned books for activeFolder unconditionally so hook count and order never change
+  const { data: activeFolderPinned = [] } = usePinnedBooks("folder", String(activeFolderId ?? -1));
+
   // --- SEARCH RESULTS VIEW (CLEAN FLAT LIST WITHOUT FOLDER FRAGMENTATION) ---
   if (isSearching) {
     return (
@@ -700,8 +703,6 @@ export function LibrarySections({
   }
 
   // --- FULL-PAGE FOLDER DRILL-DOWN VIEW ---
-  const { data: activeFolderPinned = [] } = usePinnedBooks("folder", String(activeFolderId ?? -1));
-
   if (activeFolder) {
     const activeBooks = grouped.get(activeFolder.id!) ?? [];
     const activePinnedSet = new Set(activeFolderPinned.map((p) => p.bookId));
