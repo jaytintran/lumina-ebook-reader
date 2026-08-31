@@ -30,9 +30,7 @@ import {
 } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import { parseFullEpub, type ParsedEpubContent } from "@/lib/importer";
-import { useAudioNarration } from "@/hooks/useAudioNarration";
 import {
-  AudioPlayerBar,
   EpubReaderView,
   PdfPageItem,
   ReaderHeader,
@@ -103,23 +101,6 @@ export function ReaderPage() {
 
   // Note form state
   const [newNote, setNewNote] = useState("");
-
-  // Audio Narration Engine
-  const narration = useAudioNarration({
-    bookType: book?.fileType,
-    epubDoc,
-    pdfDoc,
-    currentLocation: book?.fileType === "pdf" ? pdfCurrentPage : epubSectionIdx,
-    onLocationChange: (newLoc) => {
-      if (book?.fileType === "pdf") {
-        setPdfCurrentPage(newLoc);
-        handleJumpToLocation(newLoc);
-      } else {
-        setEpubSectionIdx(newLoc);
-        handleJumpToLocation(newLoc);
-      }
-    },
-  });
 
   // Sync metadata form when book loaded
   useEffect(() => {
@@ -579,45 +560,33 @@ export function ReaderPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background select-none">
-      {/* Top Navigation Bar */}
-      {book && (
-        <ReaderHeader
-          book={book}
-          onBack={handleExitReader}
-          pdfCurrentPage={pdfCurrentPage}
-          pdfNumPages={pdfNumPages}
-          pdfScale={pdfScale}
-          onPdfPrevPage={() => handleScrollToPdfPage(Math.max(1, pdfCurrentPage - 1))}
-          onPdfNextPage={() => handleScrollToPdfPage(Math.min(pdfNumPages, pdfCurrentPage + 1))}
-          onPdfZoomIn={handlePdfZoomIn}
-          onPdfZoomOut={handlePdfZoomOut}
-          onPdfZoomReset={handlePdfZoomReset}
-          onPdfFitWidth={handlePdfFitWidth}
-          epubDoc={epubDoc}
-          epubSectionIdx={epubSectionIdx}
-          epubFontSize={epubFontSize}
-          onEpubPrevSection={() => handleScrollToEpubSection(Math.max(0, epubSectionIdx - 1))}
-          onEpubNextSection={() => handleScrollToEpubSection(Math.min(epubDoc?.sections.length ? epubDoc.sections.length - 1 : 0, epubSectionIdx + 1))}
-          onEpubZoomIn={handleEpubZoomIn}
-          onEpubZoomOut={handleEpubZoomOut}
-          onEpubZoomReset={handleEpubZoomReset}
-          leftPinned={leftPinned}
-          rightPinned={rightPinned}
-          onToggleLeftPinned={() => setLeftPinned((p) => !p)}
-          onToggleRightPinned={() => setRightPinned((p) => !p)}
-          isAudioOpen={narration.isOpen}
-          isAudioPlaying={narration.isPlaying}
-          onToggleAudio={() => {
-            if (narration.isOpen) {
-              if (narration.isPlaying) narration.handlePause();
-              else narration.setIsOpen(false);
-            } else {
-              narration.handlePlay();
-            }
-          }}
-        />
-      )}
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground select-text">
+      {/* Header */}
+      <ReaderHeader
+        book={book}
+        onBack={handleExitReader}
+        pdfCurrentPage={pdfCurrentPage}
+        pdfNumPages={pdfNumPages}
+        pdfScale={pdfScale}
+        onPdfPrevPage={() => handleScrollToPdfPage(Math.max(1, pdfCurrentPage - 1))}
+        onPdfNextPage={() => handleScrollToPdfPage(Math.min(pdfNumPages, pdfCurrentPage + 1))}
+        onPdfZoomIn={handlePdfZoomIn}
+        onPdfZoomOut={handlePdfZoomOut}
+        onPdfZoomReset={handlePdfZoomReset}
+        onPdfFitWidth={handlePdfFitWidth}
+        epubDoc={epubDoc}
+        epubSectionIdx={epubSectionIdx}
+        epubFontSize={epubFontSize}
+        onEpubPrevSection={() => handleScrollToEpubSection(Math.max(0, epubSectionIdx - 1))}
+        onEpubNextSection={() => handleScrollToEpubSection(Math.min(epubDoc?.sections.length ? epubDoc.sections.length - 1 : 0, epubSectionIdx + 1))}
+        onEpubZoomIn={handleEpubZoomIn}
+        onEpubZoomOut={handleEpubZoomOut}
+        onEpubZoomReset={handleEpubZoomReset}
+        leftPinned={leftPinned}
+        rightPinned={rightPinned}
+        onToggleLeftPinned={() => setLeftPinned((p) => !p)}
+        onToggleRightPinned={() => setRightPinned((p) => !p)}
+      />
 
       {/* 3-Column Main Body */}
       <div className="flex flex-1 overflow-hidden relative">
@@ -679,8 +648,6 @@ export function ReaderPage() {
                   pageSize={pdfPageSize}
                   highlights={highlights}
                   onHighlightClick={handleHighlightClick}
-                  activeSpokenSentence={narration.activeSentence}
-                  syncHighlight={narration.syncHighlight}
                   onVisible={(page) => {
                     setPdfCurrentPage(page);
                     saveProgress.mutate({
@@ -698,8 +665,6 @@ export function ReaderPage() {
                 epubDoc={epubDoc}
                 epubFontSize={epubFontSize}
                 highlights={highlights}
-                activeSpokenSentence={narration.activeSentence}
-                syncHighlight={narration.syncHighlight}
                 onVisibleSection={(secIdx) => {
                   setEpubSectionIdx(secIdx);
                   saveProgress.mutate({
@@ -840,34 +805,6 @@ export function ReaderPage() {
           />
         )}
       </div>
-
-      {/* Floating Audiobook Narration Player Bar */}
-      <AudioPlayerBar
-        isOpen={narration.isOpen}
-        isPlaying={narration.isPlaying}
-        isPaused={narration.isPaused}
-        activeSentence={narration.activeSentence}
-        sentenceIndex={narration.sentenceIndex}
-        totalSentences={narration.totalSentences}
-        availableVoices={narration.availableVoices}
-        selectedVoiceURI={narration.selectedVoiceURI}
-        rate={narration.rate}
-        syncHighlight={narration.syncHighlight}
-        onPlay={narration.handlePlay}
-        onPause={narration.handlePause}
-        onStop={narration.handleStop}
-        onNext={narration.handleNext}
-        onPrev={narration.handlePrev}
-        onRateChange={narration.handleRateChange}
-        onVoiceChange={narration.handleVoiceChange}
-        onToggleSyncHighlight={narration.toggleSyncHighlight}
-        onClose={() => narration.setIsOpen(false)}
-        locationLabel={
-          book?.fileType === "pdf"
-            ? `Page ${pdfCurrentPage}`
-            : `Section ${epubSectionIdx + 1}`
-        }
-      />
     </div>
   );
 }

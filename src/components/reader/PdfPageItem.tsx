@@ -44,8 +44,6 @@ export function PdfPageItem({
   highlights = [],
   onVisible,
   onHighlightClick,
-  activeSpokenSentence,
-  syncHighlight = true,
 }: {
   pdfDoc: pdfjs.PDFDocumentProxy;
   pageNumber: number;
@@ -54,8 +52,6 @@ export function PdfPageItem({
   highlights?: Array<{ id?: number; text: string; color: string; pageOrLocation: number | string }>;
   onVisible: (pageNumber: number) => void;
   onHighlightClick?: (id: number) => void;
-  activeSpokenSentence?: { text: string; sectionOrPage: number; index: number } | null;
-  syncHighlight?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
@@ -154,44 +150,6 @@ export function PdfPageItem({
       applyPdfHighlights(textLayerRef.current, highlights, onHighlightClick);
     }
   }, [highlights, rendered]);
-
-  // Apply live audio spoken sentence highlight in textLayer
-  useEffect(() => {
-    if (!rendered || !textLayerRef.current) return;
-
-    // Clear old active audio marks on this page
-    const prevSpans = textLayerRef.current.querySelectorAll("span.lumina-pdf-audio-active");
-    prevSpans.forEach((sp) => {
-      sp.classList.remove("lumina-pdf-audio-active", "bg-amber-400/40", "ring-2", "ring-amber-400", "rounded-sm");
-    });
-
-    if (
-      !syncHighlight ||
-      !activeSpokenSentence ||
-      activeSpokenSentence.sectionOrPage !== pageNumber ||
-      !activeSpokenSentence.text
-    ) {
-      return;
-    }
-
-    const cleanQuery = activeSpokenSentence.text.toLowerCase().replace(/\s+/g, " ").trim();
-    if (cleanQuery.length < 3) return;
-
-    const spans = Array.from(textLayerRef.current.querySelectorAll("span"));
-    let firstMatchedSpan: HTMLElement | null = null;
-
-    for (const span of spans) {
-      const spanText = (span.textContent || "").toLowerCase().replace(/\s+/g, " ").trim();
-      if (spanText.length > 2 && (cleanQuery.includes(spanText) || spanText.includes(cleanQuery.slice(0, 30)))) {
-        span.classList.add("lumina-pdf-audio-active", "bg-amber-400/40", "ring-2", "ring-amber-400", "rounded-sm");
-        if (!firstMatchedSpan) firstMatchedSpan = span;
-      }
-    }
-
-    if (firstMatchedSpan) {
-      firstMatchedSpan.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [activeSpokenSentence, syncHighlight, pageNumber, rendered]);
 
   return (
     <div
