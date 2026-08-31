@@ -99,7 +99,7 @@ export const BookRow = memo(function BookRow({
       >
         <div
           className={cn(
-            "group relative cursor-pointer rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/50",
+            "group relative cursor-pointer rounded-lg border border-border bg-card p-3.5 transition-all hover:border-primary/50 h-[156px] flex flex-col justify-center select-none",
             selected && "border-primary bg-primary/10 ring-2 ring-primary shadow-md",
             hasSelection && !selected && "opacity-40 hover:opacity-75",
           )}
@@ -116,7 +116,7 @@ export const BookRow = memo(function BookRow({
               toggleSelected(book.id!);
             }}
             className={cn(
-              "absolute right-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border bg-card shadow transition-all",
+              "absolute right-2.5 top-2.5 z-20 flex h-6 w-6 items-center justify-center rounded-full border bg-card shadow transition-all",
               selected
                 ? "border-primary bg-primary text-primary-foreground scale-110"
                 : hasSelection
@@ -126,18 +126,18 @@ export const BookRow = memo(function BookRow({
           >
             {selected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
           </button>
-          <div className="flex gap-4">
-            <div className="relative shrink-0">
+          <div className="flex gap-3.5 h-full items-stretch">
+            <div className="relative shrink-0 h-full w-[88px] rounded-md overflow-hidden bg-neutral-900 shadow-sm border border-border/50">
               {coverUrl ? (
                 <img
                   src={coverUrl}
                   alt={book.title}
                   loading="lazy"
                   decoding="async"
-                  className="h-32 w-22 shrink-0 rounded-sm object-cover shadow-sm"
+                  className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-32 w-22 shrink-0 items-center justify-center rounded-sm bg-neutral-800 p-1 text-center text-[9px] font-bold text-white shadow-sm">
+                <div className="flex h-full w-full items-center justify-center p-1 text-center text-[9px] font-bold text-white">
                   {book.title.slice(0, 24)}
                 </div>
               )}
@@ -193,82 +193,90 @@ export const BookRow = memo(function BookRow({
                 )}
               </div>
             </div>
-            <div className="flex min-w-0 flex-1 flex-col justify-between">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-base font-semibold leading-snug">
-                      {book.title}
-                    </h3>
-                    {(settings?.showSubtitle ?? true) && book.subtitle && (
-                      <p className="text-xs text-muted-foreground">
-                        {book.subtitle}
-                      </p>
-                    )}
-                  </div>
+
+            <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-start justify-between gap-2 pr-7">
+                  <h3 className="text-sm font-semibold leading-tight truncate text-foreground" title={book.title}>
+                    {book.title}
+                  </h3>
                   {(settings?.showRating ?? true) && (
-                    <div className="flex items-center gap-0.5 shrink-0">
+                    <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star
                           key={i}
                           className={cn(
-                            "h-3.5 w-3.5",
+                            "h-3 w-3",
                             i < book.rating
                               ? "fill-yellow-400 text-yellow-400"
-                              : "text-muted-foreground/40",
+                              : "text-muted-foreground/30",
                           )}
                         />
                       ))}
                     </div>
                   )}
                 </div>
+
+                {(settings?.showSubtitle ?? true) && book.subtitle ? (
+                  <p className="text-[11px] text-muted-foreground truncate leading-tight" title={book.subtitle}>
+                    {book.subtitle}
+                  </p>
+                ) : null}
+
                 {(settings?.showAuthor ?? true) && (
-                  <p className="text-xs font-medium text-foreground/80">
+                  <p className="text-xs font-medium text-foreground/80 truncate leading-tight pt-0.5">
                     {book.author} <span className="text-[10px] font-normal text-muted-foreground/70">· {book.fileType.toUpperCase()}</span>
                   </p>
                 )}
               </div>
 
-              {(settings?.showProgress ?? true) && (
-                <div
-                  className="flex items-center gap-3 py-1"
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0">
-                    <span>Progress:</span>
-                    <span className="font-semibold text-primary">{book.progress ?? 0}%</span>
+              <div className="flex flex-col gap-1.5">
+                {(settings?.showTags ?? true) && book.tags.length > 0 && (
+                  <div className="flex items-center gap-1 overflow-hidden">
+                    {book.tags.slice(0, 3).map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-accent/80 px-2 py-0.5 text-[9px] text-muted-foreground whitespace-nowrap"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                    {book.tags.length > 3 && (
+                      <span className="text-[9px] text-muted-foreground/70 font-medium">
+                        +{book.tags.length - 3}
+                      </span>
+                    )}
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={book.progress ?? 0}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      updateBook.mutate({
-                        id: book.id!,
-                        patch: { progress: Number(e.target.value) },
-                      });
-                    }}
-                    className="h-1.5 flex-1 max-w-xs cursor-pointer appearance-none rounded-lg bg-secondary accent-primary hover:h-2 transition-all"
-                  />
-                </div>
-              )}
+                )}
 
-              {(settings?.showTags ?? true) && book.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {book.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="rounded-full bg-accent px-2 py-0.5 text-[10px] text-muted-foreground"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
+                {(settings?.showProgress ?? true) && (
+                  <div
+                    className="flex items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-medium shrink-0">
+                      <span>Progress:</span>
+                      <span className="font-semibold text-primary">{book.progress ?? 0}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={book.progress ?? 0}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateBook.mutate({
+                          id: book.id!,
+                          patch: { progress: Number(e.target.value) },
+                        });
+                      }}
+                      className="h-1.5 flex-1 max-w-[200px] cursor-pointer appearance-none rounded-lg bg-secondary accent-primary hover:h-2 transition-all"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

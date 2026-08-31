@@ -237,6 +237,9 @@ export function LibrarySections({
 
   const [editingActiveFolder, setEditingActiveFolder] = useState(false);
   const setLastLibraryLocation = useUIStore((s) => s.setLastLibraryLocation);
+  const searchQuery = useUIStore((s) => s.searchQuery).trim();
+  const setSearchQuery = useUIStore((s) => s.setSearchQuery);
+  const isSearching = searchQuery.length > 0;
 
   const handleOpenFolder = useCallback((folderId: number) => {
     setActiveFolderId(folderId);
@@ -391,7 +394,7 @@ export function LibrarySections({
 
   if (!data) return null;
   const { folders, grouped, ungrouped, allBooks } = data;
-  const rawDisplayedBooks = hideGrouped ? ungrouped : allBooks;
+  const rawDisplayedBooks = isSearching ? allBooks : hideGrouped ? ungrouped : allBooks;
 
   const displayedBooks = useMemo(() => {
     if (sortConfig.field === "custom") {
@@ -485,10 +488,6 @@ export function LibrarySections({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeFolderId, editingActiveFolder]);
-
-  const searchQuery = useUIStore((s) => s.searchQuery).trim();
-  const setSearchQuery = useUIStore((s) => s.setSearchQuery);
-  const isSearching = searchQuery.length > 0;
 
   // Query pinned books for activeFolder unconditionally so hook count and order never change
   const { data: activeFolderPinned = [] } = usePinnedBooks("folder", String(activeFolderId ?? -1));
