@@ -1,9 +1,9 @@
 import { memo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, FileText, Heart, Star } from "lucide-react";
+import { Check, FileText, Heart, Pin, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
-import { useSettings, useUpdateBook } from "@/db/hooks";
+import { usePinnedBooks, useSettings, useUpdateBook } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 import { BookContextMenu } from "./BookContextMenu";
@@ -16,8 +16,8 @@ import {
 
 export const BookCard = memo(function BookCard({
   book,
-  scopeType,
-  scopeId,
+  scopeType = "view",
+  scopeId = "home",
 }: {
   book: Book;
   scopeType?: string;
@@ -25,6 +25,8 @@ export const BookCard = memo(function BookCard({
 }) {
   const { data: settings } = useSettings();
   const updateBook = useUpdateBook();
+  const { data: pinnedRows = [] } = usePinnedBooks(scopeType, scopeId);
+  const isPinned = pinnedRows.some((p) => p.bookId === book.id);
   const coverUrl = useCover(book.coverKey);
   const navigate = useNavigate();
   const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null);
@@ -145,8 +147,35 @@ export const BookCard = memo(function BookCard({
                 </div>
               )}
 
-              {/* Status and Favorite Badges */}
+              {/* Status, Pinned, Favorite, and Description/Note Badges */}
               <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
+                {isPinned && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-950/85 text-amber-400 backdrop-blur border border-amber-500/40 shadow-xs" title="Pinned in this view">
+                    <Pin className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  </span>
+                )}
+                {book.description && (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setModalMode("view");
+                          }}
+                          className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/80 text-primary-foreground backdrop-blur border border-primary/40 shadow-xs hover:scale-110 transition-transform cursor-pointer"
+                          title="View description & notes"
+                        >
+                          <FileText className="h-2.5 w-2.5" />
+                        </button>
+                      }
+                    />
+                    <TooltipContent className="max-w-xs text-xs line-clamp-4 leading-relaxed">
+                      {book.description.slice(0, 250)}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {book.isFavorite && (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
                     <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
@@ -237,30 +266,6 @@ export const BookCard = memo(function BookCard({
                       {t}
                     </span>
                   ))}
-                </div>
-              )}
-              {(settings?.showDescription ?? true) && book.description && (
-                <div className="pt-0.5">
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setModalMode("view");
-                          }}
-                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-medium text-primary border border-primary/20 hover:bg-primary/20 transition-colors cursor-pointer"
-                        >
-                          <FileText className="h-3 w-3" />
-                          <span>Description</span>
-                        </button>
-                      }
-                    />
-                    <TooltipContent className="max-w-xs text-xs line-clamp-4 leading-relaxed">
-                      {book.description.slice(0, 250)}
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
               )}
             </div>

@@ -14,13 +14,14 @@ import {
   EyeOff,
   FolderPlus,
   GripVertical,
+  Pin,
   Search,
   Settings2,
   Star,
   User,
   X,
 } from "lucide-react";
-import { useScopeBooks, useSettings } from "@/db/hooks";
+import { usePinnedBooks, useScopeBooks, useSettings } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book, Folder as FolderT } from "@/db/schema";
 import { BookGrid } from "@/components/book/BookGrid";
@@ -52,8 +53,8 @@ interface SortConfig {
 function FolderSection({
   folder,
   books,
-  scopeType,
-  scopeId,
+  scopeType: _scopeType,
+  scopeId: _scopeId,
   onOpenFolderView,
 }: {
   folder: FolderT;
@@ -88,6 +89,26 @@ function FolderSection({
       return next;
     });
   };
+
+  const { data: folderPinned = [] } = usePinnedBooks("folder", String(folder.id));
+  const pinnedSet = useMemo(() => new Set(folderPinned.map((p) => p.bookId)), [folderPinned]);
+
+  const { pinnedBooks, unpinnedBooks } = useMemo(() => {
+    const pinnedMap = new Map(folderPinned.map((p) => [p.bookId, p.position]));
+    const pinned: Book[] = [];
+    const unpinned: Book[] = [];
+
+    for (const b of books) {
+      if (pinnedSet.has(b.id!)) {
+        pinned.push(b);
+      } else {
+        unpinned.push(b);
+      }
+    }
+
+    pinned.sort((a, b) => (pinnedMap.get(a.id!) ?? 0) - (pinnedMap.get(b.id!) ?? 0));
+    return { pinnedBooks: pinned, unpinnedBooks: unpinned };
+  }, [books, folderPinned, pinnedSet]);
 
   return (
     <section
@@ -130,15 +151,35 @@ function FolderSection({
       </div>
 
       {!collapsed && (
-        <div className="pt-1">
-          {books.length > 0 ? (
+        <div className="pt-1 flex flex-col gap-4">
+          {pinnedBooks.length > 0 && (
+            <div className="flex flex-col gap-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
+                <Pin className="h-3.5 w-3.5 fill-amber-400" />
+                <span>Pinned</span>
+                <span className="text-[11px] font-normal text-muted-foreground tabular-nums">
+                  ({pinnedBooks.length})
+                </span>
+              </div>
+              <BookGrid
+                books={pinnedBooks}
+                scopeType="folder"
+                scopeId={String(folder.id)}
+                sortable={{
+                  pinnedScope: { scopeType: "folder", scopeId: String(folder.id) },
+                }}
+              />
+            </div>
+          )}
+
+          {unpinnedBooks.length > 0 ? (
             <BookGrid
-              books={books}
-              scopeType={scopeType}
-              scopeId={scopeId}
+              books={unpinnedBooks}
+              scopeType="folder"
+              scopeId={String(folder.id)}
               sortable={{ folderId: folder.id! }}
             />
-          ) : (
+          ) : pinnedBooks.length === 0 ? (
             <div
               className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-8 px-4 text-center transition-all ${
                 isOver
@@ -152,7 +193,7 @@ function FolderSection({
                 Drag and drop book cards here to add them to "{folder.name}"
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </section>
@@ -375,6 +416,28 @@ export function LibrarySections({
       return 0;
     });
   }, [rawDisplayedBooks, sortConfig]);
+
+  const { data: scopePinned = [] } = usePinnedBooks(scopeType, scopeId);
+  const scopePinnedSet = useMemo(() => new Set(scopePinned.map((p) => p.bookId)), [scopePinned]);
+  const scopePinnedMap = useMemo(() => new Map(scopePinned.map((p) => [p.bookId, p.position])), [scopePinned]);
+
+  const { pinnedBooks, unpinnedBooks } = useMemo(() => {
+    const pinned: Book[] = [];
+    const unpinned: Book[] = [];
+
+    for (const b of displayedBooks) {
+      if (scopePinnedSet.has(b.id!)) {
+        pinned.push(b);
+      } else {
+        unpinned.push(b);
+      }
+    }
+
+    // Pinned books are always ordered by their custom pinned position
+    pinned.sort((a, b) => (scopePinnedMap.get(a.id!) ?? 0) - (scopePinnedMap.get(b.id!) ?? 0));
+    return { pinnedBooks: pinned, unpinnedBooks: unpinned };
+  }, [displayedBooks, scopePinnedSet, scopePinnedMap]);
+
   const headerTitle = hideGrouped
     ? "Ungrouped Books"
     : title || "All Books";
@@ -637,8 +700,25 @@ export function LibrarySections({
   }
 
   // --- FULL-PAGE FOLDER DRILL-DOWN VIEW ---
+  const { data: activeFolderPinned = [] } = usePinnedBooks("folder", String(activeFolderId ?? -1));
+
   if (activeFolder) {
     const activeBooks = grouped.get(activeFolder.id!) ?? [];
+    const activePinnedSet = new Set(activeFolderPinned.map((p) => p.bookId));
+    const activePinnedMap = new Map(activeFolderPinned.map((p) => [p.bookId, p.position]));
+
+    const pinnedInFolder: Book[] = [];
+    const unpinnedInFolder: Book[] = [];
+
+    for (const b of activeBooks) {
+      if (activePinnedSet.has(b.id!)) {
+        pinnedInFolder.push(b);
+      } else {
+        unpinnedInFolder.push(b);
+      }
+    }
+
+    pinnedInFolder.sort((a, b) => (activePinnedMap.get(a.id!) ?? 0) - (activePinnedMap.get(b.id!) ?? 0));
 
     return (
       <div className="flex flex-col gap-6">
@@ -682,15 +762,36 @@ export function LibrarySections({
           </Button>
         </div>
 
-        {/* Folder Books Grid */}
-        {activeBooks.length > 0 ? (
+        {/* Pinned Books in Folder */}
+        {pinnedInFolder.length > 0 && (
+          <section className="flex flex-col gap-3 rounded-xl bg-amber-500/5 border border-amber-500/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-amber-400">
+              <Pin className="h-4 w-4 fill-amber-400" />
+              <span>Pinned in Folder</span>
+              <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                ({pinnedInFolder.length})
+              </span>
+            </div>
+            <BookGrid
+              books={pinnedInFolder}
+              scopeType="folder"
+              scopeId={String(activeFolder.id)}
+              sortable={{
+                pinnedScope: { scopeType: "folder", scopeId: String(activeFolder.id) },
+              }}
+            />
+          </section>
+        )}
+
+        {/* Unpinned Folder Books Grid */}
+        {unpinnedInFolder.length > 0 ? (
           <BookGrid
-            books={activeBooks}
-            scopeType={scopeType}
-            scopeId={scopeId}
+            books={unpinnedInFolder}
+            scopeType="folder"
+            scopeId={String(activeFolder.id)}
             sortable={{ folderId: activeFolder.id! }}
           />
-        ) : (
+        ) : pinnedInFolder.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/80 bg-background/30 py-16 px-4 text-center text-muted-foreground">
             <FolderPlus className="h-10 w-10 mb-2.5 opacity-50 text-primary" />
             <p className="text-sm font-semibold text-foreground">
@@ -700,7 +801,7 @@ export function LibrarySections({
               Right-click books in your library or drag and drop them onto this folder to add them.
             </p>
           </div>
-        )}
+        ) : null}
 
         {editingActiveFolder && (
           <FolderSettingsDialog
@@ -720,6 +821,33 @@ export function LibrarySections({
         scopeId={scopeId}
         onFolderClick={isCardsMode ? (folder) => handleOpenFolder(folder.id!) : undefined}
       />
+
+      {/* DEDICATED PINNED SECTION (FOR CURRENT VIEW / SCOPE) */}
+      {pinnedBooks.length > 0 && (
+        <section className="flex flex-col gap-3 rounded-xl bg-amber-500/5 border border-amber-500/20 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500/15 text-amber-400">
+                <Pin className="h-3.5 w-3.5 fill-amber-400" />
+              </div>
+              <h2 className="text-base font-bold uppercase tracking-wider text-amber-400">
+                Pinned Books
+              </h2>
+              <span className="text-xs text-muted-foreground font-normal tabular-nums">
+                ({pinnedBooks.length})
+              </span>
+            </div>
+          </div>
+          <BookGrid
+            books={pinnedBooks}
+            scopeType={scopeType}
+            scopeId={scopeId}
+            sortable={{
+              pinnedScope: { scopeType, scopeId },
+            }}
+          />
+        </section>
+      )}
 
       {/* FOLDERS GRID (When in Cards Mode) */}
       {isCardsMode && folders.length > 0 && (
@@ -754,13 +882,13 @@ export function LibrarySections({
       )}
 
       {/* FLAT LIST BOOKS */}
-      {(displayedBooks.length > 0 || hideGrouped) && baseBooks.length > 0 && (
+      {(unpinnedBooks.length > 0 || hideGrouped) && baseBooks.length > 0 && (
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">{headerTitle}</h2>
               <span className="text-xs text-muted-foreground font-normal tabular-nums">
-                ({displayedBooks.length})
+                ({unpinnedBooks.length})
               </span>
             </div>
 
@@ -934,16 +1062,18 @@ export function LibrarySections({
             </div>
           </div>
 
-          {displayedBooks.length > 0 ? (
+          {unpinnedBooks.length > 0 ? (
             <BookGrid
-              books={displayedBooks}
+              books={unpinnedBooks}
               scopeType={scopeType}
               scopeId={scopeId}
               sortable={sortConfig.field === "custom" ? "global" : undefined}
             />
           ) : (
             <div className="rounded-lg border border-dashed border-border/70 py-6 text-center text-xs text-muted-foreground">
-              All books in this view are organized into folders.
+              {pinnedBooks.length > 0
+                ? "All remaining books in this view are pinned to the top or in folders."
+                : "All books in this view are organized into folders."}
             </div>
           )}
         </section>

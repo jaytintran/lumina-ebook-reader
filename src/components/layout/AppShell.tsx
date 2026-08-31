@@ -29,6 +29,7 @@ import {
   useSaveCollections,
   useSaveFolders,
   useReorderInFolder,
+  useReorderPinnedBooks,
 } from "@/db/hooks";
 import { db } from "@/db/db";
 import { backfillMissingFileHashes } from "@/lib/importer";
@@ -270,6 +271,7 @@ export function AppShell() {
   const addToFolder = useAddBooksToFolder();
   const reorderGlobal = useReorderGlobal();
   const reorderInFolder = useReorderInFolder();
+  const reorderPinned = useReorderPinnedBooks();
   const saveFolders = useSaveFolders();
 
   const [activeBook, setActiveBook] = useState<Book | null>(null);
@@ -318,6 +320,13 @@ export function AppShell() {
         const found = books.find((b) => b.id === bookId);
         if (found) setActiveBook(found);
       }
+    } else if (typeof id === "string" && id.startsWith("pinned-book-")) {
+      const parts = id.slice("pinned-book-".length).split("-");
+      const bookId = Number(parts[2]);
+      if (!Number.isNaN(bookId)) {
+        const found = books.find((b) => b.id === bookId);
+        if (found) setActiveBook(found);
+      }
     } else if (typeof id === "string" && id.startsWith("folder-pill-")) {
       const fId = Number(id.slice("folder-pill-".length));
       if (!Number.isNaN(fId)) {
@@ -344,7 +353,48 @@ export function AppShell() {
     const activeIdStr = String(active.id);
     const overIdStr = String(over.id);
 
-    // 0a. Folder-internal book reordering
+    // 0a. Pinned-internal book reordering
+    if (
+      activeIdStr.startsWith("pinned-book-") &&
+      overIdStr.startsWith("pinned-book-")
+    ) {
+      const activeParts = activeIdStr.slice("pinned-book-".length).split("-");
+      const overParts = overIdStr.slice("pinned-book-".length).split("-");
+      const activeScopeType = activeParts[0];
+      const activeScopeId = activeParts[1];
+      const activeBookId = Number(activeParts[2]);
+
+      const overScopeType = overParts[0];
+      const overScopeId = overParts[1];
+      const overBookId = Number(overParts[2]);
+
+      if (
+        activeScopeType === overScopeType &&
+        activeScopeId === overScopeId &&
+        activeBookId !== overBookId
+      ) {
+        const existingPinned = await db.pinnedBooks
+          .where("[scopeType+scopeId]")
+          .equals([activeScopeType, activeScopeId])
+          .sortBy("position");
+
+        const pinnedIds = existingPinned.map((p) => p.bookId);
+        const oldIndex = pinnedIds.indexOf(activeBookId);
+        const newIndex = pinnedIds.indexOf(overBookId);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reordered = arrayMove(pinnedIds, oldIndex, newIndex);
+          reorderPinned.mutate({
+            scopeType: activeScopeType,
+            scopeId: activeScopeId,
+            ids: reordered,
+          });
+        }
+      }
+      return;
+    }
+
+    // 0b. Folder-internal book reordering
     if (
       activeIdStr.startsWith("folder-book-") &&
       overIdStr.startsWith("folder-book-")
@@ -453,6 +503,9 @@ export function AppShell() {
     } else if (activeIdStr.startsWith("folder-book-")) {
       const parts = activeIdStr.slice("folder-book-".length).split("-");
       activeBookId = Number(parts[1]);
+    } else if (activeIdStr.startsWith("pinned-book-")) {
+      const parts = activeIdStr.slice("pinned-book-".length).split("-");
+      activeBookId = Number(parts[2]);
     }
 
     if (activeBookId == null) return;

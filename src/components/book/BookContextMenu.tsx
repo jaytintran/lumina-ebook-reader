@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, CheckSquare, Heart, Pencil, Trash2 } from "lucide-react";
+import { BookOpen, CheckSquare, Heart, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -17,6 +17,8 @@ import {
   useCollections,
   useDeleteBooks,
   useFolders,
+  usePinnedBooks,
+  useTogglePinBook,
   useUpdateBook,
 } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
@@ -34,8 +36,8 @@ export function BookContextMenu({
   book,
   children,
   onEdit,
-  scopeType,
-  scopeId,
+  scopeType = "view",
+  scopeId = "home",
 }: {
   book: Book;
   children: ReactNode;
@@ -48,8 +50,11 @@ export function BookContextMenu({
   const deleteBooks = useDeleteBooks();
   const addToCollection = useAddBooksToCollection();
   const addToFolder = useAddBooksToFolder();
+  const togglePin = useTogglePinBook();
+  const { data: pinnedRows = [] } = usePinnedBooks(scopeType, scopeId);
+  const isPinned = pinnedRows.some((p) => p.bookId === book.id);
   const { data: collections = [] } = useCollections();
-  const { data: folders = [] } = useFolders(scopeType ?? "none", scopeId ?? "none");
+  const { data: folders = [] } = useFolders(scopeType, scopeId);
   const selected = useUIStore((s) => s.selectedIds.includes(book.id!));
   const toggleSelected = useUIStore((s) => s.toggleSelected);
 
@@ -65,6 +70,27 @@ export function BookContextMenu({
         <ContextMenuItem onClick={() => toggleSelected(book.id!)}>
           <CheckSquare className={selected ? "text-primary" : ""} />
           {selected ? "Deselect" : "Select"}
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() =>
+            togglePin.mutate({
+              bookId: book.id!,
+              scopeType: scopeType as "view" | "folder" | "collection",
+              scopeId,
+            })
+          }
+        >
+          {isPinned ? (
+            <>
+              <PinOff className="h-4 w-4 text-amber-400" />
+              <span>Unpin from Top</span>
+            </>
+          ) : (
+            <>
+              <Pin className="h-4 w-4 text-amber-400" />
+              <span>Pin to Top</span>
+            </>
+          )}
         </ContextMenuItem>
         <ContextMenuItem onClick={onEdit}>
           <Pencil /> Edit Metadata

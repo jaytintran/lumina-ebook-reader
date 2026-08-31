@@ -1,9 +1,9 @@
 import { memo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, FileText, Heart, Star } from "lucide-react";
+import { Check, FileText, Heart, Pin, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
-import { useSettings, useUpdateBook } from "@/db/hooks";
+import { usePinnedBooks, useSettings, useUpdateBook } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 import { BookContextMenu } from "./BookContextMenu";
@@ -16,8 +16,8 @@ import {
 
 export const BookRow = memo(function BookRow({
   book,
-  scopeType,
-  scopeId,
+  scopeType = "view",
+  scopeId = "home",
 }: {
   book: Book;
   scopeType?: string;
@@ -25,6 +25,8 @@ export const BookRow = memo(function BookRow({
 }) {
   const { data: settings } = useSettings();
   const updateBook = useUpdateBook();
+  const { data: pinnedRows = [] } = usePinnedBooks(scopeType, scopeId);
+  const isPinned = pinnedRows.some((p) => p.bookId === book.id);
   const coverUrl = useCover(book.coverKey);
   const navigate = useNavigate();
   const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null);
@@ -140,8 +142,35 @@ export const BookRow = memo(function BookRow({
                 </div>
               )}
 
-              {/* Status and Favorite Badges */}
+              {/* Status, Pinned, Favorite, and Description/Note Badges */}
               <div className="absolute left-1.5 top-1.5 z-10 flex flex-col items-start gap-1">
+                {isPinned && (
+                  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-amber-950/85 text-amber-400 backdrop-blur border border-amber-500/40 shadow-xs" title="Pinned in this view">
+                    <Pin className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                  </span>
+                )}
+                {book.description && (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setModalMode("view");
+                          }}
+                          className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-primary/80 text-primary-foreground backdrop-blur border border-primary/40 shadow-xs hover:scale-110 transition-transform cursor-pointer"
+                          title="View description & notes"
+                        >
+                          <FileText className="h-2.5 w-2.5" />
+                        </button>
+                      }
+                    />
+                    <TooltipContent className="max-w-xs text-xs line-clamp-4 leading-relaxed">
+                      {book.description.slice(0, 250)}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {book.isFavorite && (
                   <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
                     <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
@@ -178,18 +207,18 @@ export const BookRow = memo(function BookRow({
                     )}
                   </div>
                   {(settings?.showRating ?? true) && (
-                    <div className="flex items-center gap-1 shrink-0 pt-0.5 text-xs font-semibold text-muted-foreground">
-                      <span className={cn(book.rating > 0 && "text-foreground font-bold")}>
-                        {book.rating}
-                      </span>
-                      <Star
-                        className={cn(
-                          "h-3.5 w-3.5",
-                          book.rating > 0
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground/40",
-                        )}
-                      />
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            i < book.rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-muted-foreground/40",
+                          )}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -202,12 +231,12 @@ export const BookRow = memo(function BookRow({
 
               {(settings?.showProgress ?? true) && (
                 <div
-                  className="flex flex-col gap-1 pt-2 max-w-xs"
+                  className="flex items-center gap-3 py-1"
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium">
-                    <span>Reading Progress</span>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0">
+                    <span>Progress:</span>
                     <span className="font-semibold text-primary">{book.progress ?? 0}%</span>
                   </div>
                   <input
@@ -223,13 +252,13 @@ export const BookRow = memo(function BookRow({
                         patch: { progress: Number(e.target.value) },
                       });
                     }}
-                    className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-secondary accent-primary hover:h-2 transition-all"
+                    className="h-1.5 flex-1 max-w-xs cursor-pointer appearance-none rounded-lg bg-secondary accent-primary hover:h-2 transition-all"
                   />
                 </div>
               )}
 
               {(settings?.showTags ?? true) && book.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-2">
+                <div className="flex flex-wrap gap-1 pt-1">
                   {book.tags.map((t) => (
                     <span
                       key={t}
@@ -238,31 +267,6 @@ export const BookRow = memo(function BookRow({
                       {t}
                     </span>
                   ))}
-                </div>
-              )}
-
-              {(settings?.showDescription ?? true) && book.description && (
-                <div className="pt-2">
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setModalMode("view");
-                          }}
-                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/20 hover:bg-primary/20 transition-colors cursor-pointer"
-                        >
-                          <FileText className="h-3 w-3" />
-                          <span>View Description</span>
-                        </button>
-                      }
-                    />
-                    <TooltipContent className="max-w-xs text-xs line-clamp-4 leading-relaxed">
-                      {book.description.slice(0, 250)}
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
               )}
             </div>

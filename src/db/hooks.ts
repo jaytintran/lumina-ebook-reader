@@ -11,6 +11,7 @@ import {
   type BookOrder,
   type Collection,
   type Folder,
+  type PinnedBook,
 } from "./schema";
 
 // Query keys are stable per list. staleTime: Infinity (set in queryClient)
@@ -385,6 +386,99 @@ export function useReorderInFolder() {
       invalidate([keys.folderOrder(folderId), keys.books, keys.scopeBooks]);
       qc.invalidateQueries({ queryKey: ["bookOrderScope"] });
       qc.invalidateQueries({ queryKey: ["scopeBooks"] });
+    },
+  });
+}
+
+// --- Pinned Books Hooks --------------------------------------------------
+
+export function usePinnedBooks(scopeType: string, scopeId: string) {
+  return useQuery({
+    queryKey: ["pinnedBooks", scopeType, scopeId] as const,
+    queryFn: () =>
+      db.pinnedBooks
+        .where("[scopeType+scopeId]")
+        .equals([scopeType, scopeId])
+        .sortBy("position"),
+  });
+}
+
+export function useTogglePinBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      bookId,
+      scopeType,
+      scopeId,
+    }: {
+      bookId: number;
+      scopeType: "view" | "folder" | "collection";
+      scopeId: string;
+    }) => {
+      const existing = await db.pinnedBooks
+        .where("[scopeType+scopeId+bookId]")
+        .equals([scopeType, scopeId, bookId])
+        .first();
+
+      if (existing?.id) {
+        await db.pinnedBooks.delete(existing.id);
+      } else {
+        const count = await db.pinnedBooks
+          .where("[scopeType+scopeId]")
+          .equals([scopeType, scopeId])
+          .count();
+
+        await db.pinnedBooks.add({
+          bookId,
+          scopeType,
+          scopeId,
+          position: count,
+          createdAt: Date.now(),
+        });
+      }
+    },
+    onSuccess: (_res, { scopeType, scopeId }) => {
+      qc.invalidateQueries({ queryKey: ["pinnedBooks", scopeType, scopeId] });
+      qc.invalidateQueries({ queryKey: ["pinnedBooks"] });
+    },
+  });
+}
+
+export function useReorderPinnedBooks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      scopeType,
+      scopeId,
+      ids,
+    }: {
+      scopeType: string;
+      scopeId: string;
+      ids: number[];
+    }) => {
+      const existing = await db.pinnedBooks
+        .where("[scopeType+scopeId]")
+        .equals([scopeType, scopeId])
+        .toArray();
+      const existingMap = new Map(existing.map((r) => [r.bookId, r]));
+
+      const rows: PinnedBook[] = ids.map((bookId, position) => {
+        const row = existingMap.get(bookId);
+        return {
+          id: row?.id,
+          bookId,
+          scopeType: (row?.scopeType || scopeType) as "view" | "folder" | "collection",
+          scopeId,
+          position,
+          createdAt: row?.createdAt ?? Date.now(),
+        };
+      });
+
+      await db.pinnedBooks.bulkPut(rows);
+    },
+    onSuccess: (_res, { scopeType, scopeId }) => {
+      qc.invalidateQueries({ queryKey: ["pinnedBooks", scopeType, scopeId] });
+      qc.invalidateQueries({ queryKey: ["pinnedBooks"] });
     },
   });
 }

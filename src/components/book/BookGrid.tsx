@@ -11,7 +11,10 @@ import { useSettings } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 
-export type SortableMode = "global" | { folderId: number };
+export type SortableMode =
+  | "global"
+  | { folderId: number }
+  | { pinnedScope: { scopeType: string; scopeId: string } };
 
 function SortableItem({
   id,
@@ -65,8 +68,15 @@ export function BookGrid({
 
   const isFolder =
     typeof sortable === "object" && sortable !== null && "folderId" in sortable;
-  const getItemId = (book: Book): string | number =>
-    isFolder ? `folder-book-${sortable.folderId}-${book.id}` : book.id!;
+  const isPinnedScope =
+    typeof sortable === "object" && sortable !== null && "pinnedScope" in sortable;
+
+  const getItemId = (book: Book): string | number => {
+    if (isFolder) return `folder-book-${sortable.folderId}-${book.id}`;
+    if (isPinnedScope)
+      return `pinned-book-${sortable.pinnedScope.scopeType}-${sortable.pinnedScope.scopeId}-${book.id}`;
+    return book.id!;
+  };
 
   const grid = (
     <div

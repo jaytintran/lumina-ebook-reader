@@ -6,6 +6,7 @@ import type {
   BookFolder,
   BookCollection,
   BookOrder,
+  PinnedBook,
   AppSettings,
   Bookmark,
   Highlight,
@@ -20,6 +21,7 @@ export const db = new Dexie("BookshelfDB") as Dexie & {
   bookFolders: EntityTable<BookFolder, "id">;
   bookCollections: EntityTable<BookCollection, "id">;
   bookOrder: EntityTable<BookOrder, "id">;
+  pinnedBooks: EntityTable<PinnedBook, "id">;
   settings: EntityTable<AppSettings, "key">;
   bookmarks: EntityTable<Bookmark, "id">;
   highlights: EntityTable<Highlight, "id">;
@@ -27,13 +29,14 @@ export const db = new Dexie("BookshelfDB") as Dexie & {
   readingProgress: EntityTable<ReadingProgress, "id">;
 };
 
-db.version(3).stores({
+db.version(4).stores({
   books: "++id, title, author, publisher, readingStatus, isFavorite, dateAdded, order, fileHash",
   collections: "++id, order",
   folders: "++id, scopeType, scopeId, order",
   bookFolders: "++id, bookId, folderId, [bookId+folderId]",
   bookCollections: "++id, bookId, collectionId, [bookId+collectionId]",
   bookOrder: "++id, bookId, scopeType, scopeId, [scopeType+scopeId]",
+  pinnedBooks: "++id, bookId, scopeType, scopeId, position, [scopeType+scopeId], [scopeType+scopeId+bookId]",
   settings: "key",
   bookmarks: "++id, bookId, createdAt",
   highlights: "++id, bookId, createdAt",

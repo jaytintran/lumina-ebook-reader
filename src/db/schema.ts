@@ -57,6 +57,15 @@ export interface BookOrder {
   position: number;
 }
 
+export interface PinnedBook {
+  id?: number;
+  bookId: number;
+  scopeType: "view" | "folder" | "collection";
+  scopeId: string;
+  position: number;
+  createdAt: number;
+}
+
 export interface Source {
   id: string;
   title: string;
