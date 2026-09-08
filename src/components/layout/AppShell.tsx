@@ -113,22 +113,22 @@ function DraggedBookOverlay({ book }: { book: Book }) {
               {/* Status and Favorite Badges */}
               <div className="absolute left-1 top-1 z-10 flex flex-col items-start gap-1">
                 {book.isFavorite && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-neutral-950/90 text-rose-400 border border-rose-500/30 shadow-xs">
                     <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
                   </span>
                 )}
                 {book.readingStatus === "finished" && (
-                  <span className="rounded-full bg-green-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
+                  <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 border border-green-500/30 shadow-xs">
                     Finished
                   </span>
                 )}
                 {book.readingStatus === "currently-reading" && (
-                  <span className="rounded-full bg-blue-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
+                  <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 border border-blue-500/30 shadow-xs">
                     Reading
                   </span>
                 )}
                 {book.readingStatus === "wanna-read" && (
-                  <span className="rounded-full bg-yellow-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
+                  <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 border border-yellow-500/30 shadow-xs">
                     Wanna Read
                   </span>
                 )}
@@ -223,22 +223,22 @@ function DraggedBookOverlay({ book }: { book: Book }) {
             {/* Status and Favorite Badges */}
             <div className="absolute left-1 top-1 z-10 flex flex-col items-start gap-1">
               {book.isFavorite && (
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-neutral-950/90 text-rose-400 border border-rose-500/30 shadow-xs">
                   <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
                 </span>
               )}
               {book.readingStatus === "finished" && (
-                <span className="rounded-full bg-green-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
+                <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 border border-green-500/30 shadow-xs">
                   Finished
                 </span>
               )}
               {book.readingStatus === "currently-reading" && (
-                <span className="rounded-full bg-blue-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
+                <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 border border-blue-500/30 shadow-xs">
                   Reading
                 </span>
               )}
               {book.readingStatus === "wanna-read" && (
-                <span className="rounded-full bg-yellow-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
+                <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 border border-yellow-500/30 shadow-xs">
                   Wanna Read
                 </span>
               )}

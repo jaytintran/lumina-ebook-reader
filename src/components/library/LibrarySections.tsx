@@ -114,6 +114,10 @@ function FolderSection({
     <section
       ref={setNodeRef}
       id={`folder-${folder.id}`}
+      style={{
+        contentVisibility: "auto",
+        containIntrinsicSize: collapsed ? "64px" : "320px",
+      }}
       className={`flex scroll-mt-24 flex-col gap-3 rounded-xl border transition-all p-4 ${
         isOver
           ? "border-primary bg-primary/10 ring-2 ring-primary/30"

@@ -172,9 +172,10 @@ export function useFolderOrder(folderId: number) {
   });
 }
 
-export function useSettings() {
+export function useSettings(enabled = true) {
   return useQuery({
     queryKey: keys.settings,
+    enabled,
     queryFn: () => db.settings.get("app").then((s) => s ?? DEFAULT_SETTINGS),
   });
 }
@@ -392,9 +393,10 @@ export function useReorderInFolder() {
 
 // --- Pinned Books Hooks --------------------------------------------------
 
-export function usePinnedBooks(scopeType: string, scopeId: string) {
+export function usePinnedBooks(scopeType: string, scopeId: string, enabled = true) {
   return useQuery({
     queryKey: ["pinnedBooks", scopeType, scopeId] as const,
+    enabled: enabled && Boolean(scopeType) && Boolean(scopeId),
     queryFn: () =>
       db.pinnedBooks
         .where("[scopeType+scopeId]")

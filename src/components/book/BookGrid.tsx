@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   SortableContext,
   rectSortingStrategy,
@@ -7,7 +7,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { BookCard } from "./BookCard";
 import { BookRow } from "./BookRow";
-import { useSettings } from "@/db/hooks";
+import { usePinnedBooks, useSettings } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
 import type { Book } from "@/db/schema";
 
@@ -52,8 +52,8 @@ function SortableItem({
 
 export function BookGrid({
   books,
-  scopeType,
-  scopeId,
+  scopeType = "view",
+  scopeId = "home",
   sortable,
 }: {
   books: Book[];
@@ -62,6 +62,12 @@ export function BookGrid({
   sortable?: SortableMode;
 }) {
   const { data: settings } = useSettings();
+  const { data: pinnedRows = [] } = usePinnedBooks(scopeType, scopeId);
+  const pinnedSet = useMemo(
+    () => new Set(pinnedRows.map((p) => p.bookId)),
+    [pinnedRows],
+  );
+
   const isEditingMetadata = useUIStore((s) => s.isEditingMetadata);
   const cols = settings?.booksPerRow ?? 4;
   const Row = settings?.viewMode === "row" ? BookRow : BookCard;
@@ -95,10 +101,23 @@ export function BookGrid({
             id={getItemId(book)}
             disabled={isEditingMetadata}
           >
-            <Row book={book} scopeType={scopeType} scopeId={scopeId} />
+            <Row
+              book={book}
+              scopeType={scopeType}
+              scopeId={scopeId}
+              isPinned={pinnedSet.has(book.id!)}
+              settings={settings}
+            />
           </SortableItem>
         ) : (
-          <Row key={book.id} book={book} scopeType={scopeType} scopeId={scopeId} />
+          <Row
+            key={book.id}
+            book={book}
+            scopeType={scopeType}
+            scopeId={scopeId}
+            isPinned={pinnedSet.has(book.id!)}
+            settings={settings}
+          />
         ),
       )}
     </div>

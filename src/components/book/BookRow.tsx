@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useCover } from "@/lib/useCover";
 import { usePinnedBooks, useSettings, useUpdateBook } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
-import type { Book } from "@/db/schema";
+import type { AppSettings, Book } from "@/db/schema";
 import { BookContextMenu } from "./BookContextMenu";
 import { EditMetadataModal } from "./EditMetadataModal";
 import {
@@ -18,15 +18,24 @@ export const BookRow = memo(function BookRow({
   book,
   scopeType = "view",
   scopeId = "home",
+  isPinned: isPinnedProp,
+  settings: settingsProp,
 }: {
   book: Book;
   scopeType?: string;
   scopeId?: string;
+  isPinned?: boolean;
+  settings?: AppSettings | null;
 }) {
-  const { data: settings } = useSettings();
+  const { data: hookSettings } = useSettings(settingsProp === undefined);
+  const settings = settingsProp !== undefined ? settingsProp : hookSettings;
   const updateBook = useUpdateBook();
-  const { data: pinnedRows = [] } = usePinnedBooks(scopeType, scopeId);
-  const isPinned = pinnedRows.some((p) => p.bookId === book.id);
+  const { data: pinnedRows = [] } = usePinnedBooks(
+    scopeType,
+    scopeId,
+    isPinnedProp === undefined,
+  );
+  const isPinned = isPinnedProp ?? pinnedRows.some((p) => p.bookId === book.id);
   const coverUrl = useCover(book.coverKey);
   const navigate = useNavigate();
   const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null);
@@ -98,6 +107,10 @@ export const BookRow = memo(function BookRow({
         scopeId={scopeId}
       >
         <div
+          style={{
+            contentVisibility: "auto",
+            containIntrinsicSize: "156px",
+          }}
           className={cn(
             "group relative cursor-pointer rounded-lg border border-border bg-card p-3.5 transition-all hover:border-primary/50 h-[156px] flex flex-col justify-center select-none",
             selected && "border-primary bg-primary/10 ring-2 ring-primary shadow-md",
@@ -127,7 +140,10 @@ export const BookRow = memo(function BookRow({
             {selected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
           </button>
           <div className="flex gap-3.5 h-full items-stretch">
-            <div className="relative shrink-0 h-full w-[88px] rounded-md overflow-hidden bg-neutral-900 shadow-sm border border-border/50">
+            <div
+              className="relative shrink-0 h-full w-[88px] rounded-md overflow-hidden bg-neutral-900 shadow-sm border border-border/50"
+              style={{ contain: "paint" }}
+            >
               {coverUrl ? (
                 <img
                   src={coverUrl}
@@ -145,7 +161,7 @@ export const BookRow = memo(function BookRow({
               {/* Status, Pinned, Favorite, and Description/Note Badges */}
               <div className="absolute left-1.5 top-1.5 z-10 flex flex-col items-start gap-1">
                 {isPinned && (
-                  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-amber-950/85 text-amber-400 backdrop-blur border border-amber-500/40 shadow-xs" title="Pinned in this view">
+                  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-neutral-950/90 text-amber-400 border border-amber-500/40 shadow-xs" title="Pinned in this view">
                     <Pin className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
                   </span>
                 )}
@@ -159,7 +175,7 @@ export const BookRow = memo(function BookRow({
                             e.stopPropagation();
                             setModalMode("view");
                           }}
-                          className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-primary/80 text-primary-foreground backdrop-blur border border-primary/40 shadow-xs hover:scale-110 transition-transform cursor-pointer"
+                          className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-primary/95 text-primary-foreground border border-primary/40 shadow-xs hover:scale-110 transition-transform cursor-pointer"
                           title="View description & notes"
                         >
                           <FileText className="h-2.5 w-2.5" />
@@ -172,22 +188,22 @@ export const BookRow = memo(function BookRow({
                   </Tooltip>
                 )}
                 {book.isFavorite && (
-                  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-rose-950/80 text-rose-400 backdrop-blur border border-rose-500/30 shadow-xs">
+                  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-neutral-950/90 text-rose-400 border border-rose-500/30 shadow-xs">
                     <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
                   </span>
                 )}
                 {book.readingStatus === "finished" && (
-                  <span className="rounded-full bg-green-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 backdrop-blur border border-green-500/30 shadow-xs">
+                  <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-green-400 border border-green-500/30 shadow-xs">
                     Finished
                   </span>
                 )}
                 {book.readingStatus === "currently-reading" && (
-                  <span className="rounded-full bg-blue-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 backdrop-blur border border-blue-500/30 shadow-xs">
+                  <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-blue-400 border border-blue-500/30 shadow-xs">
                     Reading
                   </span>
                 )}
                 {book.readingStatus === "wanna-read" && (
-                  <span className="rounded-full bg-yellow-950/80 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 backdrop-blur border border-yellow-500/30 shadow-xs">
+                  <span className="rounded-full bg-neutral-950/90 px-1.5 py-0.2 text-[8px] font-semibold text-yellow-400 border border-yellow-500/30 shadow-xs">
                     Wanna Read
                   </span>
                 )}
