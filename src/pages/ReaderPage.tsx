@@ -14,18 +14,25 @@ import {
 import { readFile } from "@/db/opfs";
 import {
   useAddBookmark,
+  useAddCustomTocItem,
   useAddHighlight,
   useAddNote,
   useBook,
   useBookmarks,
+  useCustomToc,
   useDeleteBookmark,
+  useDeleteCustomTocItem,
   useDeleteHighlight,
   useDeleteNote,
   useHighlights,
   useNotes,
   useReadingProgress,
+  useResetCustomToc,
+  useSaveCustomToc,
   useSaveReadingProgress,
   useUpdateBook,
+  useUpdateBookmark,
+  useUpdateCustomTocItem,
   useUpdateNote,
 } from "@/db/hooks";
 import { useUIStore } from "@/stores/uiStore";
@@ -60,12 +67,19 @@ export function ReaderPage() {
 
   // Reader database data
   const { data: bookmarks = [] } = useBookmarks(bookId);
+  const { data: customToc = [] } = useCustomToc(bookId);
   const { data: highlights = [] } = useHighlights(bookId);
   const { data: notes = [] } = useNotes(bookId);
   const { data: progress } = useReadingProgress(bookId);
 
   const addBookmark = useAddBookmark();
+  const updateBookmark = useUpdateBookmark();
   const deleteBookmark = useDeleteBookmark();
+  const addCustomTocItem = useAddCustomTocItem();
+  const updateCustomTocItem = useUpdateCustomTocItem();
+  const deleteCustomTocItem = useDeleteCustomTocItem();
+  const saveCustomToc = useSaveCustomToc();
+  const resetCustomToc = useResetCustomToc();
   const addHighlight = useAddHighlight();
   const deleteHighlight = useDeleteHighlight();
   const addNote = useAddNote();
@@ -604,6 +618,7 @@ export function ReaderPage() {
             onTabChange={setLeftTab}
             book={book}
             pdfOutline={pdfOutline}
+            pdfNumPages={pdfNumPages}
             pdfCurrentPage={pdfCurrentPage}
             onPdfOutlineClick={(p) => {
               handleScrollToPdfPage(p);
@@ -617,11 +632,18 @@ export function ReaderPage() {
             }}
             bookmarks={bookmarks}
             onAddBookmark={handleAddBookmark}
+            onUpdateBookmark={(id, title) => updateBookmark.mutate({ id, bookId, title })}
             onDeleteBookmark={(id) => deleteBookmark.mutate({ id, bookId })}
             onBookmarkClick={(loc) => {
               handleJumpToLocation(loc);
               if (window.innerWidth < 768) setLeftPinned(false);
             }}
+            customToc={customToc}
+            onAddTocItem={(item) => addCustomTocItem.mutate({ ...item, bookId })}
+            onUpdateTocItem={(id, patch) => updateCustomTocItem.mutate({ id, bookId, patch })}
+            onDeleteTocItem={(id) => deleteCustomTocItem.mutate({ id, bookId })}
+            onSaveCustomToc={(items) => saveCustomToc.mutate({ bookId, items })}
+            onResetToc={() => resetCustomToc.mutate(bookId)}
             onClose={() => setLeftPinned(false)}
           />
         )}

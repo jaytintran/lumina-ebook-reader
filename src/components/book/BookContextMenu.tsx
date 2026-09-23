@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, CheckSquare, Heart, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { BookOpen, CheckSquare, FolderMinus, Heart, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,10 +14,12 @@ import {
 import {
   useAddBooksToCollection,
   useAddBooksToFolder,
+  useBookFolders,
   useCollections,
   useDeleteBooks,
   useFolders,
   usePinnedBooks,
+  useRemoveBookFromFolder,
   useTogglePinBook,
   useUpdateBook,
 } from "@/db/hooks";
@@ -50,13 +52,25 @@ export function BookContextMenu({
   const deleteBooks = useDeleteBooks();
   const addToCollection = useAddBooksToCollection();
   const addToFolder = useAddBooksToFolder();
+  const removeFromFolder = useRemoveBookFromFolder();
   const togglePin = useTogglePinBook();
   const { data: pinnedRows = [] } = usePinnedBooks(scopeType, scopeId);
   const isPinned = pinnedRows.some((p) => p.bookId === book.id);
   const { data: collections = [] } = useCollections();
   const { data: folders = [] } = useFolders(scopeType, scopeId);
+  const { data: bookFolders = [] } = useBookFolders(book.id);
   const selected = useUIStore((s) => s.selectedIds.includes(book.id!));
   const toggleSelected = useUIStore((s) => s.toggleSelected);
+
+  const isInCurrentFolder = scopeType === "folder" && Boolean(scopeId);
+  const bookFolderIds = useMemo(
+    () => new Set(bookFolders.map((bf) => bf.folderId)),
+    [bookFolders],
+  );
+  const matchingFolders = useMemo(
+    () => folders.filter((f) => bookFolderIds.has(f.id!)),
+    [folders, bookFolderIds],
+  );
 
   return (
     <ContextMenu>
@@ -138,6 +152,50 @@ export function BookContextMenu({
                   key={f.id}
                   onClick={() =>
                     addToFolder.mutate({ bookIds: [book.id!], folderId: f.id! })
+                  }
+                >
+                  <FolderIcon name={f.icon} className="h-4 w-4" /> {f.name}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        )}
+        {isInCurrentFolder && (
+          <ContextMenuItem
+            onClick={() =>
+              removeFromFolder.mutate({
+                bookId: book.id!,
+                folderId: Number(scopeId),
+              })
+            }
+          >
+            <FolderMinus /> Remove from Folder
+          </ContextMenuItem>
+        )}
+        {!isInCurrentFolder && matchingFolders.length === 1 && (
+          <ContextMenuItem
+            onClick={() =>
+              removeFromFolder.mutate({
+                bookId: book.id!,
+                folderId: matchingFolders[0].id!,
+              })
+            }
+          >
+            <FolderMinus /> Remove from &ldquo;{matchingFolders[0].name}&rdquo;
+          </ContextMenuItem>
+        )}
+        {!isInCurrentFolder && matchingFolders.length > 1 && (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>Remove from Folder</ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              {matchingFolders.map((f) => (
+                <ContextMenuItem
+                  key={f.id}
+                  onClick={() =>
+                    removeFromFolder.mutate({
+                      bookId: book.id!,
+                      folderId: f.id!,
+                    })
                   }
                 >
                   <FolderIcon name={f.icon} className="h-4 w-4" /> {f.name}

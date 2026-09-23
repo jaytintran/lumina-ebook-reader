@@ -10,6 +10,7 @@ import {
   type BookFolder,
   type BookOrder,
   type Collection,
+  type CustomTocItem,
   type Folder,
   type PinnedBook,
 } from "./schema";
@@ -29,6 +30,7 @@ export const keys = {
   scopeBooks: ["scopeBooks"] as const,
   settings: ["settings"] as const,
   bookmarks: (bookId: number) => ["bookmarks", bookId] as const,
+  customToc: (bookId: number) => ["customToc", bookId] as const,
   highlights: (bookId: number) => ["highlights", bookId] as const,
   notes: (bookId: number) => ["notes", bookId] as const,
   progress: (bookId: number) => ["progress", bookId] as const,
@@ -293,7 +295,9 @@ export function useAddBooksToFolder() {
     onSuccess: () => {
       invalidate([keys.books, keys.folders]);
       qc.invalidateQueries({ queryKey: ["bookFolders"] });
+      qc.invalidateQueries({ queryKey: ["bookFoldersForBook"] });
       qc.invalidateQueries({ queryKey: ["bookOrderScope"] });
+      qc.invalidateQueries({ queryKey: ["scopeBooks"] });
     },
   });
 }
@@ -346,8 +350,43 @@ export function useRemoveBookFromFolder() {
     onSuccess: () => {
       invalidate([keys.books, keys.folders]);
       qc.invalidateQueries({ queryKey: ["bookFolders"] });
+      qc.invalidateQueries({ queryKey: ["bookFoldersForBook"] });
       qc.invalidateQueries({ queryKey: ["bookOrderScope"] });
+      qc.invalidateQueries({ queryKey: ["scopeBooks"] });
     },
+  });
+}
+
+export function useRemoveBooksFromFolder() {
+  const invalidate = useInvalidate();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ bookIds, folderId }: { bookIds: number[]; folderId: number }) => {
+      const records = await db.bookFolders
+        .where("folderId")
+        .equals(folderId)
+        .filter((r) => bookIds.includes(r.bookId))
+        .toArray();
+      const idsToDelete = records.map((r) => r.id!).filter(Boolean);
+      if (idsToDelete.length) {
+        await db.bookFolders.bulkDelete(idsToDelete);
+      }
+    },
+    onSuccess: () => {
+      invalidate([keys.books, keys.folders]);
+      qc.invalidateQueries({ queryKey: ["bookFolders"] });
+      qc.invalidateQueries({ queryKey: ["bookFoldersForBook"] });
+      qc.invalidateQueries({ queryKey: ["bookOrderScope"] });
+      qc.invalidateQueries({ queryKey: ["scopeBooks"] });
+    },
+  });
+}
+
+export function useBookFolders(bookId?: number) {
+  return useQuery({
+    queryKey: ["bookFoldersForBook", bookId] as const,
+    enabled: typeof bookId === "number",
+    queryFn: () => db.bookFolders.where("bookId").equals(bookId!).toArray(),
   });
 }
 
@@ -505,12 +544,103 @@ export function useAddBookmark() {
   });
 }
 
+export function useUpdateBookmark() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, bookId: _bookId, title }: { id: number; bookId?: number; title: string }) =>
+      db.bookmarks.update(id, { title: title.trim() }),
+    onSuccess: (_res, vars) => {
+      if (vars.bookId != null) invalidate([keys.bookmarks(vars.bookId)]);
+      else invalidate([keys.bookmarks(0)]);
+    },
+  });
+}
+
 export function useDeleteBookmark() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ id }: { id: number; bookId: number }) =>
+    mutationFn: ({ id, bookId: _bookId }: { id: number; bookId?: number }) =>
       db.bookmarks.delete(id),
-    onSuccess: (_res, { bookId }) => invalidate([keys.bookmarks(bookId)]),
+    onSuccess: (_res, vars) => {
+      if (vars.bookId != null) invalidate([keys.bookmarks(vars.bookId)]);
+    },
+  });
+}
+
+// --- Custom Table of Contents (TOC) Hooks ---
+
+export function useCustomToc(bookId?: number) {
+  return useQuery({
+    queryKey: keys.customToc(bookId!),
+    enabled: bookId != null,
+    queryFn: () =>
+      db.customToc.where("bookId").equals(bookId!).sortBy("order"),
+  });
+}
+
+export function useAddCustomTocItem() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (data: Omit<CustomTocItem, "id">) => {
+      return await db.customToc.add(data);
+    },
+    onSuccess: (_res, vars) => invalidate([keys.customToc(vars.bookId)]),
+  });
+}
+
+export function useUpdateCustomTocItem() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({
+      id,
+      bookId: _bookId,
+      patch,
+    }: {
+      id: number;
+      bookId: number;
+      patch: Partial<Omit<CustomTocItem, "id" | "bookId">>;
+    }) => db.customToc.update(id, patch),
+    onSuccess: (_res, vars) => invalidate([keys.customToc(vars.bookId)]),
+  });
+}
+
+export function useDeleteCustomTocItem() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id, bookId: _bookId }: { id: number; bookId: number }) => {
+      await db.customToc.delete(id);
+    },
+    onSuccess: (_res, vars) => invalidate([keys.customToc(vars.bookId)]),
+  });
+}
+
+export function useSaveCustomToc() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ bookId, items }: { bookId: number; items: Array<Omit<CustomTocItem, "id"> | CustomTocItem> }) => {
+      await db.customToc.where("bookId").equals(bookId).delete();
+      if (items.length > 0) {
+        const rows: CustomTocItem[] = items.map((it, idx) => ({
+          bookId,
+          title: it.title,
+          pageOrLocation: it.pageOrLocation,
+          depth: it.depth ?? 0,
+          order: idx,
+        }));
+        await db.customToc.bulkAdd(rows);
+      }
+    },
+    onSuccess: (_res, vars) => invalidate([keys.customToc(vars.bookId)]),
+  });
+}
+
+export function useResetCustomToc() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (bookId: number) => {
+      await db.customToc.where("bookId").equals(bookId).delete();
+    },
+    onSuccess: (_res, bookId) => invalidate([keys.customToc(bookId)]),
   });
 }
 

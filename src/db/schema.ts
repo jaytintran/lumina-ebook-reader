@@ -80,6 +80,15 @@ export interface Bookmark {
   createdAt: number;
 }
 
+export interface CustomTocItem {
+  id?: number;
+  bookId: number;
+  title: string;
+  pageOrLocation: number | string;
+  depth: number;
+  order: number;
+}
+
 export interface Highlight {
   id?: number;
   bookId: number;

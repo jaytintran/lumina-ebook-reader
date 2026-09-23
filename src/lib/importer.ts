@@ -233,6 +233,7 @@ export interface EpubTocItem {
   id: string;
   label: string;
   href: string;
+  depth?: number;
 }
 
 export interface EpubSection {

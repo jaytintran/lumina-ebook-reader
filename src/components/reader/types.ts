@@ -6,3 +6,11 @@ export interface PdfOutlineItem {
   pageNumber: number;
   depth: number;
 }
+
+export interface UnifiedTocItem {
+  id?: number | string;
+  title: string;
+  pageOrLocation: number | string;
+  depth: number;
+  isCustom?: boolean;
+}
